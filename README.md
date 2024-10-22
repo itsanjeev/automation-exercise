@@ -1,4 +1,4 @@
-# automation-exercise
+# automation-exercise [![Playwright Tests](https://github.com/itsanjeev/automation-exercise/actions/workflows/playwright.yml/badge.svg)](https://github.com/itsanjeev/automation-exercise/actions/workflows/playwright.yml)
 
 This repository contains automated end-to-end tests for the project, built using Playwright.
 
