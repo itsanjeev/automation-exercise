@@ -6,6 +6,7 @@ type Object = {
     pageManager: PageManager
     userLoginTestdata: any,
     contactUsTestdata: any
+    productSearchTestdata:any
 }
 
 export const test = baseFixture.extend<Object>({
@@ -18,5 +19,8 @@ export const test = baseFixture.extend<Object>({
     },
     contactUsTestdata: async ({}, use) => {
         await use(testdata.contactUsTestdata)
+    },
+    productSearchTestdata: async ({}, use) => {
+        await use(testdata.productSearchTestdata)
     }
 })
