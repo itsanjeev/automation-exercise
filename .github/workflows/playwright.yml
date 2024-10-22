@@ -14,13 +14,13 @@ jobs:
       with:
         node-version: lts/*
     - name: Install dependencies
-      run: npm install -g yarn && yarn
+      run: yarn install
     - name: Install Playwright Browsers
       run: yarn playwright install --with-deps
     - name: Run Playwright tests
       env:
         LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD}}
-      run: yarn playwright test
+      run: yarn run:local
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

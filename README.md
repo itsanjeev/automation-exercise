@@ -44,3 +44,36 @@ yarn run:local
 ```bash
 yarn playwright show-report
 ```
+
+## Pipeline Setup Steps and How to Access Reports
+
+**CI Pipeline Setup**:
+
+This project is configured to use GitHub Actions for Continuous Integration (CI). The pipeline is automatically triggered on every push to the main branch.
+
+* **CI Configuration File**: The GitHub Actions configuration file is located at:
+```
+.github/workflows/playwright.yml
+```
+
+**Key Steps in the Pipeline:**
+1. **Checking out the code**: This ensures the repository code is checked out into the GitHub Actions runner.
+2. **Setting up Node.js**: The pipeline uses the actions/setup-node GitHub Action to set the Node.js version.
+3. **Installing dependencies**: Installs all Node.js dependencies using yarn.
+4. **Installing Playwright browsers**: This installs the required browsers with Playwright.
+5. **Running the Playwright tests**: Executes the Playwright tests using the yarn playwright test command.
+6. **Uploading the test results**: Once tests are complete, the test results and reports are uploaded as artifacts for later review.
+
+**Accessing CI Reports**:
+Once the tests have run, the report is automatically generated and stored in the **playwright-report** folder. You can download the Playwright HTML report from the GitHub Actions workflow.
+
+To access reports:
+1. Navigate to the Actions tab in this GitHub repository.
+2. Select the workflow run you want to see the result.
+3. Under the Artifacts section, download the playwright-report folder.
+4. Download and Extract the folder and open the HTML report to view the detailed test results.
+
+![img.png](img.png)
+
+**HTML Report**:
+![img_2.png](img_2.png)
