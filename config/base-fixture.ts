@@ -14,7 +14,7 @@ export const test = baseFixture.extend<Object>({
         await use(new PageManager(page))
     },
     userLoginTestdata: async ({}, use) => {
-        testdata.userLoginTestdata.HappyPath.password = process.env.LOGIN_PASSWORD || "";
+        testdata.userLoginTestdata.HappyPath.password = process.env.LOGIN_PASSWORD || "admin@123";
         await use(testdata.userLoginTestdata)
     },
     contactUsTestdata: async ({}, use) => {
