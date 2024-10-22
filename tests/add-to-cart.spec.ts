@@ -5,4 +5,5 @@ test('Should be able scroll down and add third last product to Cart', async ({pa
     await pageManager.productPage.goTo();
     await pageManager.productPage.productSearchViaCategory(productSearchTestdata)
     await pageManager.productPage.addProductToCartByIndexFromLast(3)
+    expect(await pageManager.productPage.isProductAddedToCart()).toBe(true)
 })

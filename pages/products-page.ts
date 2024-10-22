@@ -32,4 +32,11 @@ export default class ProductsPage extends BasePage {
         await products.nth(thirdLastProductIndex).scrollIntoViewIfNeeded();
         await this.page.locator('.features_items .single-products').nth(3).getByRole('link', {name: 'Add to cart'}).nth(0).click()
     }
+
+    async isProductAddedToCart() {
+        const element = await this.page.getByRole('paragraph', {name: 'Your product has been added to cart.'})
+        await element.waitFor({state: "visible"})
+        await element.waitFor({state: "attached"})
+        return element.isVisible()
+    }
 }
