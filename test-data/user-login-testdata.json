@@ -1,0 +1,10 @@
+{
+  "HappyPath": {
+    "username": "sanjeevtest@gmail.com",
+    "password": ""
+  },
+  "InvalidLogin": {
+    "username": "invalid@gmail.com",
+    "password": "invalid"
+  }
+}
