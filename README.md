@@ -6,10 +6,88 @@ This repository contains automated end-to-end tests for the project, built using
 The test scripts are written using Playwright and TypeScript. These scripts cover the end-to-end flow for key user functionalities of the application `https://automationexercise.com/`.
 
 The tests include:
-* Login functionality
-* Adding products to cart
-* Contact form submission
-* Product search
+* **Login functionality**
+* **Adding products to cart**
+* **Contact form submission**
+* **Product search**
+
+## Framework Overview 
+The project follows a layered architecture approach to organise the folder structure. Below is the directory structure:
+
+* .github - This contains pipeline yml file
+* config - This contains custom configuration file required to run the test
+* pages - Implements the Page Object Model (POM) design pattern. Each page of the application has a corresponding class that encapsulates the page’s elements and behaviors, promoting better organization and reuse of code.
+* test-data - This folder contains test data used for data-driven tests, allowing for easy updates and management of test inputs and expected results.
+* test - Serves as the entry point for executing tests.
+* playwright.config - The default configuration file for Playwright, where you can specify browser settings, timeouts, and other global options.
+* package.json - This file contains the project's dependencies, scripts, and metadata necessary for Node.js package management.
+* yarn.lock: This lock file ensures that the same dependency versions are installed across different environments, providing consistency in builds.
+
+**Test Layer** 
+```ts
+import {test} from "../config/base-fixture"
+import {expect} from "@playwright/test";
+
+test('Should be able to login', async ({pageManager, userLoginTestdata}) => {
+    await pageManager.loginPage.goTo();
+    await pageManager.loginPage.login(userLoginTestdata.HappyPath.username, userLoginTestdata.HappyPath.password)
+    expect(await pageManager.loginPage.isUserLoggedIn()).toBe(true);
+})
+```
+**Page Layer**
+Page manager 
+```ts
+export default class PageManager {
+    private readonly page: Page;
+
+    private _loginPage: LoginPage | null = null;
+    constructor(page: Page) {
+        this.page = page;
+    }
+
+    public get loginPage() {
+        if (!this._loginPage) {
+            this._loginPage = new LoginPage(this.page);
+        }
+        return this._loginPage;
+    }
+    
+}
+```
+Page Class 
+```ts
+export default class LoginPage extends BasePage {
+
+    protected get usernameInput() {
+        return this.page.locator('form').filter({hasText: 'Login'}).getByPlaceholder('Email Address')
+    }
+
+    protected get passwordInput() {
+        return this.page.locator('form').filter({hasText: 'Login'}).getByPlaceholder('Password')
+    }
+
+    protected get loginBtn() {
+        return this.page.getByRole('button', {name: 'Login'})
+    }
+    
+    constructor(page: Page) {
+        super(page)
+    }
+
+    async goTo() {
+        await this.page.goto("/login")
+    }
+
+    async login(username: string, password: string) {
+        await this.usernameInput.fill(username)
+        await this.passwordInput.fill(password)
+        await this.loginBtn.click()
+    }
+
+}
+```
+
+
 
 ## Steps for Setting Up the Project Locally and Running Tests
 
