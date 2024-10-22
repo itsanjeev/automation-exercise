@@ -25,4 +25,11 @@ export default class ProductsPage extends BasePage {
         return ele.isVisible()
     }
 
+    async addProductToCartByIndexFromLast(index: number) {
+        const products = await this.page.locator('.features_items .single-products')
+        const productCount = await products.count();
+        const thirdLastProductIndex = productCount - index
+        await products.nth(thirdLastProductIndex).scrollIntoViewIfNeeded();
+        await this.page.locator('.features_items .single-products').nth(3).getByRole('link', {name: 'Add to cart'}).nth(0).click()
+    }
 }
