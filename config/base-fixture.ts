@@ -4,7 +4,8 @@ import PageManager from "../pages/page-manager";
 
 type Object = {
     pageManager: PageManager
-    userLoginTestdata: any
+    userLoginTestdata: any,
+    contactUsTestdata: any
 }
 
 export const test = baseFixture.extend<Object>({
@@ -14,5 +15,8 @@ export const test = baseFixture.extend<Object>({
     userLoginTestdata: async ({}, use) => {
         testdata.userLoginTestdata.HappyPath.password = process.env.LOGIN_PASSWORD || "";
         await use(testdata.userLoginTestdata)
+    },
+    contactUsTestdata: async ({}, use) => {
+        await use(testdata.contactUsTestdata)
     }
 })

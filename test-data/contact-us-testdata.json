@@ -1,0 +1,9 @@
+{
+  "happyPath": {
+    "name": "test",
+    "email": "test@test.com",
+    "subject": "test email",
+    "message": "Message test",
+    "fileToUploadPath": ""
+  }
+}
