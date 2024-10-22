@@ -34,7 +34,7 @@ export default class ProductsPage extends BasePage {
     }
 
     async isProductAddedToCart() {
-        const element = await this.page.getByRole('paragraph', {name: 'Your product has been added to cart.'})
+        const element = this.page.getByText('Your product has been added')
         await element.waitFor({state: "visible"})
         await element.waitFor({state: "attached"})
         return element.isVisible()
