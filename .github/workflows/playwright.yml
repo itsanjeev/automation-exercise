@@ -20,6 +20,7 @@ jobs:
     - name: Run Playwright tests
       env:
         E2E_PASSWORD: ${{ secrets.E2E_PASSWORD}}
+        LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD}}
       run: yarn playwright test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
