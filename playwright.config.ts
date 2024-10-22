@@ -14,7 +14,7 @@ export default defineConfig({
     reporter: 'html',
 
     use: {
-        headless: false,
+        headless: true,
         baseURL: 'https://automationexercise.com',
         trace: 'on-first-retry',
     },
