@@ -76,4 +76,4 @@ To access reports:
 ![img.png](img.png)
 
 **HTML Report**:
-![img_2.png](img_2.png)
+![img_1.png](img_1.png)
