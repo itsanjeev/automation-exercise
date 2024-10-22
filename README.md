@@ -35,7 +35,8 @@ test('Should be able to login', async ({pageManager, userLoginTestdata}) => {
 })
 ```
 **Page Layer**
-Page manager 
+
+Page manager - Manages all page objects
 ```ts
 export default class PageManager {
     private readonly page: Page;
