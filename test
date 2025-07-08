@@ -1,0 +1,98 @@
+Here’s a clear and professional **intro PPT structure** for the **MCP Server concept**, formatted as a Gamma-friendly text block. This will generate a polished presentation with minimal editing.
+
+---
+
+**Title: Introduction to MCP Server Development**
+
+---
+
+**Slide 1: What is an MCP Server?**
+
+* An **MCP Server** is a lightweight backend program that exposes functionality to LLM applications via the **Model Context Protocol**.
+* It acts as a bridge between the **client (inside the host)** and **external data, tools, or services**.
+* Servers expose capabilities like:
+
+  * **Tools** (actions)
+  * **Resources** (read-only data)
+  * **Prompt Templates** (predefined prompts)
+
+---
+
+**Slide 2: Why Build an MCP Server?**
+
+* Extend the capabilities of LLM hosts (e.g., Claude Desktop, Cursor).
+* Connect your AI application to:
+
+  * APIs
+  * Databases
+  * Filesystems
+  * Internal tools
+* Abstract logic into reusable, callable endpoints for LLMs.
+* Encourage modular, scalable, and secure design.
+
+---
+
+**Slide 3: How MCP Servers Work**
+
+* Server follows the **MCP protocol** to communicate with clients.
+* Responsibilities of the server:
+
+  * Register tools, resources, and prompt templates.
+  * Respond to requests from the client.
+  * Maintain state (if needed) via supported transport mechanisms.
+* Communication happens over **standard I/O** (local) or **HTTP/SSE** (remote).
+
+---
+
+**Slide 4: Core Components of an MCP Server**
+
+1. **Tools**
+
+   * Executable functions that perform a task.
+   * Defined with decorators in Python SDK.
+2. **Resources**
+
+   * Static or dynamic data exposed at specific URIs.
+   * Templated or fixed.
+3. **Prompt Templates**
+
+   * Predefined user-assistant interactions.
+   * Help reduce prompt engineering effort.
+
+---
+
+**Slide 5: Server Setup and Transports**
+
+* **Local Servers**:
+
+  * Use **Standard I/O** (subprocess-based).
+  * Ideal for testing and development.
+* **Remote Servers**:
+
+  * Use **HTTP with SSE** (stateful)
+  * Or **Streamable HTTP** (supports stateful & stateless)
+* Choice of transport depends on scalability and deployment needs.
+
+---
+
+**Slide 6: Benefits of Using MCP Servers**
+✅ Seamlessly connect LLMs to real-world data and actions
+✅ Isolate logic into clear components (tool, resource, prompt)
+✅ Promote reusability and separation of concerns
+✅ Easily integrate with existing systems via Python SDK
+
+---
+
+**Slide 7: What’s Next**
+
+* Learn how to:
+
+  * Install and use the Python MCP SDK
+  * Write and register your first tool
+  * Expose resources and prompt templates
+  * Launch your own MCP server locally
+* Hands-on coding starts in the next lesson!
+
+---
+
+Let me know if you want to follow this with a **hands-on setup tutorial deck**, or add a **diagram** slide to show the architecture flow visually.
