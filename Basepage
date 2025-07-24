@@ -1,0 +1,112 @@
+package com.projectname.base;
+
+import com.projectname.helpers.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+
+/**
+ * Base page class providing common page functionality and helper access.
+ * All page classes should extend this class to inherit common functionality.
+ *
+ * @author Selenium Automation Framework
+ * @version 1.0.0
+ */
+@Slf4j
+public abstract class BasePage {
+
+    protected final WebDriver driver;
+    protected final WebElementFinder elementFinder;
+    protected final WebClickHelper clickHelper;
+    protected final WebInputHelper inputHelper;
+    protected final WebDropDownHelper dropDownHelper;
+    protected final WebTableHelper tableHelper;
+
+    // Constructor initializing all helper classes.
+    public BasePage() {
+        this.driver = BaseTest.getDriver();
+        this.elementFinder = new WebElementFinder();
+        this.clickHelper = new WebClickHelper(driver);
+        this.inputHelper = new WebInputHelper();
+        this.dropDownHelper = new WebDropDownHelper();
+        this.tableHelper = new WebTableHelper();
+        log.debug("BasePage initialized for: {}", this.getClass().getSimpleName());
+    }
+
+    // Gets a WebElement with built-in wait for visibility and enabled state.
+    protected WebElement getElement(By locator, int timeoutInSecs) {
+        return elementFinder.getElement(driver, locator, timeoutInSecs);
+    }
+
+    protected WebElement getElement(By locator) {
+        return getElement(locator, 10);
+    }
+
+    // Clicks on an element using the element locator.
+    protected boolean clickElement(By locator, int timeoutInSecs) {
+        WebElement element = getElement(locator, timeoutInSecs);
+        return clickHelper.clickElement(element);
+    }
+
+    protected boolean clickElement(By locator) {
+        return clickElement(locator, 10);
+    }
+
+    // Types text into an input field.
+    protected boolean typeText(By locator, String text, int timeoutInSecs) {
+        WebElement element = getElement(locator, timeoutInSecs);
+        return inputHelper.typeText(element, text);
+    }
+
+    protected boolean typeText(By locator, String text) {
+        return typeText(locator, text, 10);
+    }
+
+    // Gets text from an element.
+    protected String getText(By locator, int timeoutInSecs) {
+        WebElement element = getElement(locator, timeoutInSecs);
+        return inputHelper.getText(element);
+    }
+
+    protected String getText(By locator) {
+        return getText(locator, 10);
+    }
+
+    // Selects dropdown option by visible text.
+    protected boolean selectByText(By locator, String text, int timeoutInSecs) {
+        WebElement element = getElement(locator, timeoutInSecs);
+        return dropDownHelper.selectByText(element, text);
+    }
+
+    protected boolean selectByText(By locator, String text) {
+        return selectByText(locator, text, 10);
+    }
+
+    // Gets the current page title.
+    protected String getPageTitle() {
+        return driver.getTitle();
+    }
+
+    // Gets the current page URL.
+    protected String getCurrentUrl() {
+        return driver.getCurrentUrl();
+    }
+
+    // Navigates to a URL.
+    protected void navigateTo(String url) {
+        log.info("Navigating to: {}", url);
+        driver.get(url);
+    }
+
+    // Refreshes the current page.
+    protected void refreshPage() {
+        log.info("Refreshing page");
+        driver.navigate().refresh();
+    }
+
+    // Navigates back in browser history.
+    protected void navigateBack() {
+        log.info("Navigating back");
+        driver.navigate().back();
+    }
+}
