@@ -1,0 +1,29 @@
+Generate two architecture diagrams (use Mermaid flowchart style) to illustrate Pact contract testing with Guidewire.
+
+Diagram 1: Approach 1 – Separate Provider Test Repo
+- Consumer repo generates contract (Pact file).
+- Pact file is published to Pact Broker.
+- CI/CD pipeline for provider:
+  - Builds Guidewire repo (provider code).
+  - Clones separate test repo containing Pact provider tests.
+  - Starts Guidewire service locally.
+  - Pact verifier in test repo fetches contracts from Pact Broker.
+  - Runs provider verification against local Guidewire instance.
+- Results pushed back to Pact Broker.
+
+Diagram 2: Approach 2 – Test-only Dependency Inside Guidewire Repo
+- Consumer repo generates contract (Pact file).
+- Pact file is published to Pact Broker.
+- CI/CD pipeline for provider:
+  - Builds Guidewire repo with Pact verifier dependency included as testImplementation (excluded from production JAR).
+  - Starts Guidewire service locally.
+  - Pact verifier inside same repo fetches contracts from Pact Broker.
+  - Runs provider verification against local Guidewire instance.
+- Results pushed back to Pact Broker.
+
+Clearly show the flow:
+Consumer → Pact Broker → Provider (Guidewire) → Provider State setup → Verify Interaction → Results to Broker.
+
+Add annotations for pros/cons:
+- Approach 1: clean separation, but 2 repos.
+- Approach 2: single repo, but must exclude Pact from prod bundle.
