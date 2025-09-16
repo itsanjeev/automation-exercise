@@ -1,0 +1,212 @@
+Got it. You want a **POC document** that sells Pact in your Guidewire + Gosu world, covers theory + trade-offs, and addresses local setup constraints.
+Here’s a full draft you can refine and share with stakeholders.
+
+---
+
+# 📄 Proof of Concept (POC) – Pact Contract Testing for Guidewire (Gosu-based System)
+
+---
+
+## 1. What is Pact?
+
+Pact is a **contract testing framework** that ensures two systems (consumer and provider) can communicate without breaking each other.
+Instead of waiting for large end-to-end tests, Pact lets teams validate expectations at the **API boundary**.
+
+* **Consumer** → defines what it needs from the provider (request + expected response).
+* **Pact file (contract)** → JSON file that describes these expectations.
+* **Provider** → runs tests to verify it can meet these expectations in real conditions.
+
+---
+
+## 2. How Pact Works (high-level flow)
+
+1. **Consumer test** runs against a Pact mock server → produces a contract (`pact.json`).
+2. Contract is published to a **Pact Broker** (shared store).
+3. **Provider pipeline** fetches contracts from Broker.
+4. Provider spins up its real service (local, container, or test server).
+5. Pact Verifier runs:
+
+   * Sets up provider states (`@State` = test fixtures).
+   * Sends real requests to provider according to contract.
+   * Compares responses against the Pact file.
+6. Verification results are pushed back to Broker.
+
+---
+
+## 3. Example Flow – Claim Service
+
+**Consumer contract:**
+
+* State: `"Claim 123 exists"`
+* Request: `GET /claims/123`
+* Expected: `200 {"claimId":"123","status":"OPEN"}`
+
+**Provider verification:**
+
+* State handler seeds DB with claim 123.
+* Verifier calls `/claims/123`.
+* Real response is compared with Pact file.
+
+This can be repeated for `400 Bad Request` (invalid ID) and `500 Internal Server Error` (DB down).
+
+---
+
+## 4. Pact Broker vs PactFlow
+
+* **Pact Broker (OSS)**
+
+  * Self-hosted, free, open-source.
+  * Requires infra + maintenance.
+  * Full control over security and storage.
+
+* **PactFlow (Commercial)**
+
+  * Hosted SaaS (by Pact team).
+  * Managed infra, built-in CI/CD integrations, fine-grained access control.
+  * Enterprise support, SLAs, advanced analytics.
+  * Paid.
+
+👉 Recommendation:
+
+* For **POC / pilot** → use OSS Broker locally or in a sandbox.
+* For **production enterprise** → PactFlow is safer (less infra hassle, better governance).
+
+---
+
+## 5. Why Contract Testing in Guidewire?
+
+* Guidewire’s Gosu backend is **hard to unit-test in isolation**, because it’s tightly coupled.
+* End-to-end integration tests are **slow and brittle**.
+* Pact allows **incremental verification at API boundaries** (Guidewire = provider).
+
+This is critical when:
+
+* FE → BFF → Middle layer → Guidewire chain exists.
+* Guidewire changes risk breaking upstream systems.
+
+---
+
+## 6. Approaches for Provider Verification
+
+### Approach 1: Separate Provider Test Repo
+
+* Guidewire repo (A) → production code only.
+* Test repo (B) → contains Pact verifier tests.
+* CI/CD pipeline:
+
+  1. Build & run Guidewire locally.
+  2. Clone test repo.
+  3. Fetch contracts from Broker.
+  4. Run provider verification against Guidewire service.
+
+✅ Pros:
+
+* Keeps Guidewire repo clean.
+* No risk of test libraries leaking into production.
+* Easier to iterate on tests without touching Guidewire.
+
+❌ Cons:
+
+* Two repos to maintain.
+* Requires coordination in pipelines.
+* Local dev harder (can’t just run `gradlew test`).
+
+---
+
+### Approach 2: Test-only Dependency Inside Guidewire Repo
+
+* Add Pact verifier dependency in `testImplementation` scope of `build.gradle`.
+* Provider tests live inside Guidewire repo alongside Gosu/JUnit tests.
+* CI/CD pipeline:
+
+  1. Build Guidewire repo.
+  2. Spin up Guidewire service.
+  3. Run Pact provider verification.
+
+✅ Pros:
+
+* Single repo (easier maintenance).
+* Local devs can run `gradlew test` and verify contracts.
+* CI pipeline simpler.
+
+❌ Cons:
+
+* Must exclude Pact libs from final release bundle (risk of leakage).
+* Guidewire platform may restrict dependency management (needs governance).
+
+---
+
+## 7. Local Setup Constraints (Current Blocker)
+
+⚠️ Issue: Running Guidewire service locally is blocked due to infra restrictions.
+
+### Workarounds:
+
+1. **Stub Layer for Provider Verification**
+
+   * Spin up lightweight mock/stub simulating Guidewire API.
+   * Useful for PoC, but not a true provider test.
+
+2. **Deploy Guidewire in Test Environment (shared QA server)**
+
+   * Point Pact verifier to remote environment instead of localhost.
+   * Trade-off: less isolated, but feasible when local is blocked.
+
+3. **Dockerized Service**
+
+   * If possible, containerize Guidewire runtime → run in CI/CD ephemeral env.
+   * Requires infra support.
+
+---
+
+## 8. Recommendations
+
+* Start with **Approach 2 (test-only dependency)** for PoC:
+
+  * Lower setup cost, fewer repos.
+  * Add Pact verifier under `testImplementation`.
+  * Exclude from final WAR/JAR packaging.
+* Use **OSS Pact Broker** for pilot.
+* If scaling org-wide → migrate to **PactFlow**.
+* Since local execution is blocked:
+
+  * Run provider verification in **shared CI/CD pipeline** pointing to QA/Test Guidewire environment.
+  * Document fixture setup for each provider state (`Claim 123 exists`, `DB down`, etc.).
+
+---
+
+## 9. Pros & Cons of Pact (Overall)
+
+✅ Pros:
+
+* Fast feedback (no need for slow E2E tests).
+* Catches integration issues early.
+* Contracts act as living documentation.
+* Reduces dependency on massive QA cycles.
+
+❌ Cons:
+
+* Requires discipline in state management.
+* Doesn’t fully replace integration tests (still need some).
+* Setup complexity in legacy platforms like Guidewire.
+* If Broker down → pipeline blocked.
+
+---
+
+## 10. Next Steps
+
+1. Stand up a Pact Broker (OSS, in a sandbox env).
+2. Add consumer Pact tests in BFF repo.
+3. Publish contract → verify in Pact Broker.
+4. Add Pact verifier dependency in Guidewire repo (test scope).
+5. Run provider verification against QA Guidewire env.
+6. Demo flow: consumer test → contract → provider verification.
+7. Present findings + trade-offs → decide scaling strategy.
+
+---
+
+👉 This POC will validate feasibility without requiring Guidewire local runtime, while keeping open the option to harden CI/CD flows later.
+
+---
+
+Naruto, do you want me to **also write a “POC Demo Plan”** (like exact scripts, gradle commands, expected outputs) so your team can actually run this step by step in CI/CD, even though local setup is blocked?
