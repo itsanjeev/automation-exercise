@@ -1,7 +1,7 @@
 # automation-exercise [![Playwright Tests](https://github.com/itsanjeev/automation-exercise/actions/workflows/playwright.yml/badge.svg)](https://github.com/itsanjeev/automation-exercise/actions/workflows/playwright.yml)
 
 This repository contains automated end-to-end tests for the project, built using Playwright.
-
+git log --since="2 months ago" --pretty=tformat: --numstat | awk '{added += $1; removed += $2} END {print "Added:", added, "Removed:", removed, "Net Change:", added-removed}'
 ## Automated Test Scripts
 The test scripts are written using Playwright and TypeScript. These scripts cover the end-to-end flow for key user functionalities of the application `https://automationexercise.com/`.
 
