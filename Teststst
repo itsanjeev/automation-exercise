@@ -1,0 +1,13 @@
+Our current CI/CD pipelines, especially those executing Windows-based application tests, suffer from significant delays and cost overhead due to on-demand agent provisioning.
+
+Each pipeline run triggers a “Create Agent” step that spins up a fresh Azure VM using a base image. This process takes 10–15 minutes on average.
+
+With ~100+ pipeline runs per day (driven by PR validations, nightly runs, and feature testing), this agent creation overhead compounds massively, resulting in:
+	•	~1000–1500 minutes (15–25 hours) of total compute time wasted per day
+	•	Increased Azure compute costs
+	•	Slower developer feedback loops
+	•	Reduced pipeline throughput and queue congestion during peak hours
+
+This issue becomes more pronounced because:
+	•	We cannot use containerized runners (e.g., Docker) due to interactive Windows UI and registry dependencies in our test workflows.
+	•	Each new agent build installs dependencies, registers environment variables, and configures registry keys — all of which are repeated unnecessarily for every run.
