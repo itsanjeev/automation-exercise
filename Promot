@@ -1,0 +1,50 @@
+Below is a prompt you can use to generate a report similar to the one provided in the screenshots, ensuring all elements and structure are preserved when analyzing data for different quarters. This prompt can be reused with new data inputs.
+
+Prompt:
+I am providing you with data analysis for two quarters (e.g., Q2 and Q3) related to the impact of GitHub Copilot on code optimization and automation efficiency. Based on the data I provide, generate a detailed report in the exact format and style of the attached screenshots. Include the following sections and details without adding any new reporting structure:
+	1	Title and Comparison Section:
+	◦	Use the title “GitHub Copilot Impact Analysis: Q2 vs Q3” (replace Q2 and Q3 with the actual quarters provided).
+	◦	Include an “Executive Summary” subsection with a brief comparison statement (e.g., “Comparing Q2 (Copilot introduced) with Q3 (Copilot matured) reveals that deletions don’t equal rework - they often represent optimization and consolidation. This analysis reframes the metrics to show code efficiency improvements rather than just churn.”).
+	2	Overall Metrics Comparison Table:
+	◦	Create a table with the following columns: “Metric”, “Q2 (Copilot New)”, “Q3 (Copilot Mature)”, “Change”, “Assessment”.
+	◦	Include metrics such as “Total Files Changed”, “Lines Added”, “Lines Removed”, “Net Change”, and populate with the data I provide.
+	◦	Use color-coded assessments (e.g., ✅ Stable, 🟢 Slightly lower, 🟢 More optimization, 🟡 Lower growth) based on the change trends.
+	3	Key Insight Section:
+	◦	Include a “Key Insight: Lines Removed = Code Optimization, Not Rework” subsection.
+	◦	Add a brief explanation (e.g., “Understanding ‘Lines Removed’”) and a list of what lines removed include (e.g., “Lines removed includes:”).
+	4	Lines of Code Reduction Analysis (Spec Files - Feature/Test Scenarios):
+	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
+	◦	Include metrics like “Total Spec Files”, “What Changed” with examples (e.g., “Multiple duplicate scenarios” vs. “Consolidated generic tests”), and provide evidence from Q3 (e.g., “ThirdPartyPropertyExposure_feature: Before: 326 lines (Q2), After: 181 lines (Q3), Removed: 225 lines, Result: Same coverage, 69% less code”).
+	◦	List optimization activities (e.g., “Consolidating 3 test scenarios into 1 generic test (reducing duplication)”).
+	5	Page Objects (Framework Code) Analysis:
+	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
+	◦	Include metrics like “Total Page Objects”, “What Changed” with examples (e.g., “Redundant duplicate methods” vs. “Extracted common methods, modularized”), and provide evidence from Q3 (e.g., “NewENOLMotorClaimCommonPage.java: Before: 501 lines (Q2), After: 266 lines (Q3), Removed: 235 lines, Result: Extracted helpers”).
+	◦	List characteristics before and after optimization.
+	6	Step Definitions (Implementation) Analysis:
+	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
+	◦	Include metrics like “Step Definition Files”, “What Changed” with examples (e.g., “Long methods with inline logic” vs. “Extracted helper methods”), and provide evidence from Q3.
+	◦	List characteristics before and after optimization.
+	7	Automation Cycle Time Improvement:
+	◦	Create a table titled “Time to Complete Automation for a Story” with columns: “Phase”, “Before Copilot (Q2)”, “After Copilot (Q3)”, “Time Saved”, “Impact”.
+	◦	Include phases like “Writing Test Scenarios”, “Creating Page Objects”, “Implementing Step Definitions”, “Test Data Setup”, “Debugging & Fixes”, and calculate the total.
+	◦	Use color-coded impacts (e.g., ✅ Copilot suggests BDD steps, ✅ Copilot generates locators & methods, 🟡 Still requires manual effort, ✅ Major improvement) based on time savings.
+	8	Automation Efficiency Metrics:
+	◦	Include a “Story Completion Breakdown (Detailed)” section with an example story (e.g., “Create Motor FNOL with Third Party”).
+	◦	Create a table with columns: “Task”, “Q2 (Manual)”, “Q3 (Copilot)”, “Time Saved”, “Method”.
+	◦	Include tasks like “Feature File”, “Page Objects”, “Step Definitions”, “Helper Classes”, “Test Data”, “Debugging”, and calculate the total with time saved (e.g., “-2.5 days saved”).
+	◦	Use color-coded impacts (e.g., ✅ Copilot suggests Gherkin syntax, ✅ Copilot generates JSON).
+	9	Detailed Metrics: Before vs After Optimization:
+	◦	Include subsections for “Feature Files (Test Scenarios)”, “Framework Code (Page Objects)”, and “Step Definitions (Implementation)”.
+	◦	For each subsection, list:
+	▪	Q2: Before Optimization (e.g., number of files, average lines, characteristics like duplicate test scenarios).
+	▪	Q3: After Optimization (e.g., number of files, average lines, characteristics like parameterized scenarios).
+	▪	Impact Summary (e.g., lines removed, impact per scenario or method, what was removed like duplicate test steps).
+	10	Category-by-Category Analysis:
+	◦	Include subsections for “Feature Files (Test Scenarios)” and “Framework Code (Page Objects)”.
+	◦	Create tables with columns: “Metric”, “Q2”, “Q3”, “Difference”, “Interpretation”.
+	◦	Include metrics like “Files Changed”, “Lines Added”, “Lines Removed”, “Net Change”, “New Files”, “Deletions”, “Major Reductions”.
+	◦	Provide interpretations (e.g., ✅ More test coverage, 🟢 Doubled optimization) and explanations (e.g., “Double optimization activity (team is consolidating duplicate tests)”).
+Use the data I provide for each quarter to populate the tables and sections. Ensure all tables, color-coded assessments, and impact summaries match the style and layout of the attached screenshots. Do not introduce new sections or alter the existing structure.
+Please generate the report based on the following data: [Insert data for Q2 and Q3 here].
+
+You can replace “[Insert data for Q2 and Q3 here]” with the specific metrics and details for the quarters you want to analyze, and the response will follow the exact format and structure of the provided screenshots.
