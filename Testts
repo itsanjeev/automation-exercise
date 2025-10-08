@@ -1,0 +1,18 @@
+Instead of creating a fresh Azure agent VM every time, we propose a snapshot and restore-based model for agent lifecycle management.
+
+🔧 Core Concept
+	1.	Pre-Provision and Snapshot Agents:
+	•	Create a small pool (e.g., 4–6) of standardized Azure DevOps Windows agents.
+	•	Pre-install all dependencies, registry configurations, and environment setups.
+	•	Take an OS Disk Snapshot of each agent in its clean, ready-to-run state.
+	2.	Pipeline Execution:
+	•	When a test pipeline is triggered, it picks an idle agent from the pool.
+	•	The test executes directly on this pre-configured agent — no provisioning delay.
+	3.	Post-Execution Restore (Clean Slate Reset):
+	•	After the test completes and artifacts are collected, the agent’s OS disk is restored from its baseline snapshot.
+	•	The agent reverts to a pristine state automatically, ready for the next pipeline.
+
+This approach guarantees:
+	•	Fresh state for every test run (registry, filesystem, services)
+	•	Zero agent re-creation time
+	•	Predictable and reproducible test environments
