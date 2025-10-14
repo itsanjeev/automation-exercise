@@ -1,0 +1,49 @@
+import path from "path";
+import { PactV3, MatchersV3 } from "@pact-foundation/pact";
+import { getUserData } from "../../src/services/getUserData"; // BFF code calling TIBCO
+import { expect } from "chai";
+
+const { like } = MatchersV3;
+
+const provider = new PactV3({
+  consumer: "bff-service",
+  provider: "tibco-api",
+  dir: path.resolve(process.cwd(), "pacts"), // where contract will be written
+  logLevel: "info",
+});
+
+describe("Pact with TIBCO API", () => {
+  it("should fetch user data successfully", async () => {
+    // Define expected interaction
+    provider
+      .given("User exists in TIBCO")
+      .uponReceiving("a request to GET user details")
+      .withRequest({
+        method: "GET",
+        path: "/v1/users/12345",
+        headers: { Accept: "application/json" },
+      })
+      .willRespondWith({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: like({
+          id: "12345",
+          name: "John Doe",
+          email: "john.doe@company.com",
+        }),
+      });
+
+    // Execute test against the mock provider
+    await provider.executeTest(async (mockServer) => {
+      // Mock base URL in your BFF’s tibcoClient
+      process.env.TIBCO_API_BASE_URL = mockServer.url;
+
+      const user = await getUserData("12345");
+
+      expect(user).to.deep.include({
+        id: "12345",
+        name: "John Doe",
+      });
+    });
+  });
+});
