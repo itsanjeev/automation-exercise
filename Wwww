@@ -1,0 +1,221 @@
+Perfect — that screenshot you’ve got is a textbook example of a Pact consumer test for a BFF calling a TIBCO API. Let’s wrap it into clear technical documentation that you can actually commit into your repo’s /docs/contract-testing.md or Confluence.
+
+Here’s the complete doc, written exactly how a senior SDET / architect would explain it:
+
+⸻
+
+🧾 Contract Testing in BFF with Pact (Consumer: BFF | Provider: TIBCO API)
+
+1️⃣ Overview
+
+This document explains how our BFF service defines and tests its expectations from the TIBCO API using Pact.
+We use Pact to create consumer contracts that describe how our BFF interacts with TIBCO — without calling the real service.
+
+This ensures:
+	•	We never depend on live TIBCO endpoints during development or CI.
+	•	We can detect breaking API changes early.
+	•	We have a verifiable contract between our BFF and TIBCO provider.
+
+⸻
+
+2️⃣ Architecture Under the Hood
+
+Here’s what happens conceptually:
+
+[ BFF Consumer Test ] 
+        │
+        │ 1️⃣ Define expected request/response
+        ▼
+[ Pact Mock Server ] ←─── fakes ─── [ TIBCO API (Provider) ]
+        │
+        │ 2️⃣ BFF makes a real HTTP call (fetch/axios)
+        ▼
+[ Pact verifies interaction + writes pact file ]
+
+So during the consumer test, we mock only the provider (TIBCO), not our own BFF logic.
+
+Later, the TIBCO provider runs its own provider verification test using the generated pact file to confirm it meets the same contract.
+
+⸻
+
+3️⃣ Dependencies
+
+npm install --save-dev @pact-foundation/pact @types/mocha @types/chai ts-node typescript mocha chai
+
+If you’re running on Node < 18, also install:
+
+npm install node-fetch
+
+and at the top of your test:
+
+import fetch from "node-fetch";
+(global as any).fetch = fetch;
+
+
+⸻
+
+4️⃣ Test Location
+
+All Pact tests live under:
+
+tests/contract/
+  └── bff-tibco-consumer.spec.ts
+
+Each test corresponds to one TIBCO API contract (per resource or endpoint).
+
+⸻
+
+5️⃣ Sample Pact Consumer Test
+
+Here’s the actual code from our BFF repo that defines the contract between the BFF (consumer) and TIBCO API (provider):
+
+import path from "path";
+import { PactV3, MatchersV3 } from "@pact-foundation/pact";
+
+const { like } = MatchersV3;
+
+const provider = new PactV3({
+  consumer: "bff-service",
+  provider: "tibco-api",
+  dir: path.resolve(process.cwd(), "pacts"), // Where the generated pact file will be stored
+  logLevel: "info",
+});
+
+describe("Pact with TIBCO API", () => {
+  it("should fetch user data successfully", async () => {
+    // Define expected interaction between BFF and TIBCO
+    provider
+      .given("User exists in TIBCO")
+      .uponReceiving("a request to POST user id")
+      .withRequest({
+        method: "POST",
+        path: "/web/user/id",
+        headers: { "content-type": "application/json" },
+        body: { email: "test.user@example.com" },
+      })
+      .willRespondWith({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: like({
+          userId: "00000000-0000-0000-0-us-000000000000",
+        }),
+      });
+
+    // Execute test against Pact mock server
+    await provider.executeTest(async (mockServer) => {
+      // Mock the API base URL so BFF calls the Pact server instead of real TIBCO
+      process.env.TIBCO_API_BASE_URL = mockServer.url;
+
+      const user = await fetch(`${mockServer.url}/web/user/id`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "test.user@example.com" }),
+      });
+
+      const userResponse = await user.json();
+      expect(userResponse).toEqual({
+        userId: "00000000-0000-0000-0-us-000000000000",
+      });
+    });
+  });
+});
+
+
+⸻
+
+6️⃣ Under the Hood (What Really Happens)
+
+Here’s what happens when this test runs:
+	1.	Pact starts a mock provider server on a random port (e.g., http://127.0.0.1:8991).
+	2.	Pact configures that mock server to expect the request you defined (POST /web/user/id with body email).
+	3.	Your test code executes, and your BFF (or the fetch call) hits the mock server instead of the real TIBCO.
+	4.	The mock server checks that:
+	•	The request path, method, headers, and body match exactly what you declared.
+	5.	The mock server returns the stubbed response (status 200, body with userId).
+	6.	Pact verifies everything matched your defined expectations.
+	7.	Pact writes a JSON contract file (pact) under pacts/ describing this interaction.
+
+Example generated file:
+
+pacts/bff-service-tibco-api.json
+
+
+⸻
+
+7️⃣ Running the Test
+
+Step 1: Run the Contract Tests
+
+npm run test:contract
+
+Add this script in package.json:
+
+"scripts": {
+  "test:contract": "mocha -r ts-node/register tests/contract/**/*.spec.ts --timeout 10000"
+}
+
+Step 2: Verify Output
+
+You should see something like:
+
+[INFO] Pact Mock server started on port 8991
+✓ should fetch user data successfully
+1 passing (2s)
+
+And your /pacts folder will contain:
+
+bff-service-tibco-api.json
+
+
+⸻
+
+8️⃣ Publishing the Pact
+
+You can push the generated pact file to a Pact Broker so that the provider (TIBCO team) can verify it.
+
+npx pact-broker publish pacts \
+  --consumer-app-version=$(git rev-parse --short HEAD) \
+  --branch main \
+  --broker-base-url=https://pact-broker.company.com \
+  --broker-token=$PACT_BROKER_TOKEN
+
+
+⸻
+
+9️⃣ Provider Verification (TIBCO Side)
+
+The TIBCO service team (provider) later pulls this pact file and verifies it against their real running API using:
+
+npx pact-provider-verifier \
+  --pact-broker-base-url=https://pact-broker.company.com \
+  --provider-base-url=https://tibco-api.company.com \
+  --provider=tibco-api \
+  --broker-token=$PACT_BROKER_TOKEN
+
+If TIBCO’s API behaves exactly as your contract says, verification passes.
+
+⸻
+
+🔍 Key Takeaways
+
+Concept	Meaning
+Consumer (BFF)	Defines what it expects from TIBCO
+Provider (TIBCO)	Verifies it can deliver those expectations
+Pact mock server	Simulates provider behavior during consumer tests
+Pact file (.json)	The contract shared between both sides
+Pact Broker	Central hub to publish & verify contracts
+
+
+⸻
+
+🧭 TL;DR
+
+✅ In the consumer test, we replace real TIBCO calls with Pact’s mock server.
+✅ Pact mock = simulated TIBCO.
+✅ We verify the BFF logic, not the provider.
+✅ The generated Pact file = formal contract of expectations.
+✅ TIBCO later runs provider verification to prove compliance.
+
+⸻
+
+Would you like me to convert this doc into a formatted Markdown (.md) file that you can drop directly into your repo? I can generate it for you.
