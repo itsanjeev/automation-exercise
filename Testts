@@ -1,18 +1,566 @@
-Instead of creating a fresh Azure agent VM every time, we propose a snapshot and restore-based model for agent lifecycle management.
+"""PlaywrightLibrary — Single-file Robot Framework library for Playwright.
 
-🔧 Core Concept
-	1.	Pre-Provision and Snapshot Agents:
-	•	Create a small pool (e.g., 4–6) of standardized Azure DevOps Windows agents.
-	•	Pre-install all dependencies, registry configurations, and environment setups.
-	•	Take an OS Disk Snapshot of each agent in its clean, ready-to-run state.
-	2.	Pipeline Execution:
-	•	When a test pipeline is triggered, it picks an idle agent from the pool.
-	•	The test executes directly on this pre-configured agent — no provisioning delay.
-	3.	Post-Execution Restore (Clean Slate Reset):
-	•	After the test completes and artifacts are collected, the agent’s OS disk is restored from its baseline snapshot.
-	•	The agent reverts to a pristine state automatically, ready for the next pipeline.
+Usage:
+    *** Settings ***
+    Library    PlaywrightLibrary.py    browser=chromium    headless=${False}
 
-This approach guarantees:
-	•	Fresh state for every test run (registry, filesystem, services)
-	•	Zero agent re-creation time
-	•	Predictable and reproducible test environments
+    *** Test Cases ***
+    Download Invoice
+        Launch Browser    chromium    headless=${False}
+        Navigate To       https://example.com/invoices
+        Wait For Element Visible And Enabled    css=.download-btn
+        ${path}=    Click And Download    css=.download-btn
+        Log    Downloaded file: ${path}
+        [Teardown]    Close Browser
+"""
+
+from __future__ import annotations
+
+import atexit
+import re
+import time
+from pathlib import Path
+from typing import Literal
+
+from playwright.sync_api import (
+    Browser,
+    BrowserContext,
+    BrowserType,
+    Download,
+    Page,
+    Playwright,
+    sync_playwright,
+)
+from robot.api import logger
+from robot.api.deco import keyword
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  Selector helpers
+# ─────────────────────────────────────────────────────────────────────
+
+_PREFIX_MAP = {
+    "css=": "css",
+    "xpath=": "xpath",
+    "text=": "text",
+    "role=": "role",
+    "id=": "id",
+    "data-testid=": "data-testid",
+    "placeholder=": "placeholder",
+    "alt=": "alt",
+    "title=": "title",
+    "label=": "label",
+}
+
+
+def _resolve_selector(selector: str) -> str:
+    s = selector.strip()
+    for prefix, strategy in _PREFIX_MAP.items():
+        if s.startswith(prefix):
+            value = s[len(prefix):]
+            if strategy == "id":
+                return f"#{value}"
+            if strategy == "data-testid":
+                return f'[data-testid="{value}"]'
+            if strategy in ("placeholder", "alt", "title"):
+                return f'[{strategy}="{value}"]'
+            return s
+    if s.startswith("//") or s.startswith("(//"):
+        return f"xpath={s}"
+    if re.match(r'^".*"$', s) or re.match(r"^'.*'$", s):
+        return f"text={s}"
+    return s
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  Library
+# ─────────────────────────────────────────────────────────────────────
+
+
+class PlaywrightLibrary:
+    """A robust Playwright library for Robot Framework.
+
+    Direct Python → Playwright → Browser.  No Node.js, no gRPC.
+
+    Downloads are enabled by default.  Every keyword logs to RF's log.html.
+    """
+
+    ROBOT_LIBRARY_SCOPE = "GLOBAL"
+    ROBOT_LIBRARY_VERSION = "0.1.0"
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(
+        self,
+        browser: Literal["chromium", "firefox", "webkit"] = "chromium",
+        headless: bool = True,
+        timeout: float = 30_000,
+        download_dir: str = "downloads",
+        download_timeout: float = 60_000,
+        viewport_width: int = 1280,
+        viewport_height: int = 720,
+        slow_mo: float = 0,
+        locale: str = "en-US",
+        timezone_id: str = "America/New_York",
+        ignore_https_errors: bool = False,
+    ):
+        self._browser_type_name = browser
+        self._headless = headless
+        self._timeout = float(timeout)
+        self._download_dir = download_dir
+        self._download_timeout = float(download_timeout)
+        self._viewport = {"width": int(viewport_width), "height": int(viewport_height)}
+        self._slow_mo = float(slow_mo)
+        self._locale = locale
+        self._timezone_id = timezone_id
+        self._ignore_https_errors = ignore_https_errors
+
+        self._pw: Playwright | None = None
+        self._pw_cm = None
+        self._browser: Browser | None = None
+        self._context: BrowserContext | None = None
+        self._page: Page | None = None
+        self._last_download: Download | None = None
+
+        self.ROBOT_LIBRARY_LISTENER = self
+        atexit.register(self._emergency_cleanup)
+
+    # ── Listener hooks ──────────────────────────────────────────────
+
+    def end_suite(self, name, attrs):
+        self._cleanup()
+
+    def _emergency_cleanup(self):
+        try:
+            self._cleanup()
+        except Exception:
+            pass
+
+    def _cleanup(self):
+        for obj in (self._page, self._context, self._browser):
+            try:
+                if obj:
+                    obj.close()
+            except Exception:
+                pass
+        self._page = self._context = self._browser = None
+        if self._pw_cm:
+            try:
+                self._pw_cm.__exit__(None, None, None)
+            except Exception:
+                pass
+            self._pw = None
+            self._pw_cm = None
+
+    # ── Internal helpers ────────────────────────────────────────────
+
+    def _ensure_playwright(self) -> Playwright:
+        if self._pw is None:
+            self._pw_cm = sync_playwright()
+            self._pw = self._pw_cm.start()
+            logger.info("Playwright engine started")
+        return self._pw
+
+    def _get_browser_type(self, name: str) -> BrowserType:
+        pw = self._ensure_playwright()
+        mapping = {
+            "chromium": pw.chromium,
+            "chrome": pw.chromium,
+            "firefox": pw.firefox,
+            "webkit": pw.webkit,
+            "safari": pw.webkit,
+        }
+        bt = mapping.get(name.lower())
+        if bt is None:
+            raise ValueError(f"Unknown browser: '{name}'. Use: {', '.join(mapping)}")
+        return bt
+
+    @property
+    def _active_page(self) -> Page:
+        if self._page is None:
+            raise RuntimeError("No page is open. Call 'Launch Browser' first.")
+        return self._page
+
+    def _ensure_download_dir(self) -> Path:
+        d = Path(self._download_dir)
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    # ═════════════════════════════════════════════════════════════════
+    #  KEYWORDS
+    # ═════════════════════════════════════════════════════════════════
+
+    # ── Browser lifecycle ───────────────────────────────────────────
+
+    @keyword(name="Launch Browser")
+    def launch_browser(
+        self,
+        browser: str | None = None,
+        headless: bool | None = None,
+        url: str | None = None,
+        slow_mo: float | None = None,
+    ) -> None:
+        """Launch a browser with downloads enabled and open a page.
+
+        ``browser``   chromium (default) | firefox | webkit
+        ``headless``  Run without visible window (default from library init)
+        ``url``       Optional URL to navigate to immediately
+        ``slow_mo``   Slow down operations by this many ms (debugging)
+
+        Downloads are *always* accepted — ``accept_downloads=True`` is set
+        on the browser context automatically.
+
+        Examples:
+        | Launch Browser |                             |
+        | Launch Browser | firefox | headless=${False} |
+        | Launch Browser | url=https://example.com     |
+        """
+        if self._browser is not None:
+            logger.info("Browser already open — closing previous instance")
+            self._cleanup()
+
+        bt = self._get_browser_type(browser or self._browser_type_name)
+        self._browser = bt.launch(
+            headless=headless if headless is not None else self._headless,
+            slow_mo=float(slow_mo) if slow_mo is not None else self._slow_mo,
+        )
+        logger.info(
+            f"Launched {browser or self._browser_type_name} "
+            f"(headless={headless if headless is not None else self._headless})"
+        )
+
+        self._context = self._browser.new_context(
+            accept_downloads=True,
+            viewport=self._viewport,
+            locale=self._locale,
+            timezone_id=self._timezone_id,
+            ignore_https_errors=self._ignore_https_errors,
+        )
+        logger.debug("Browser context created (accept_downloads=True)")
+
+        self._page = self._context.new_page()
+        self._page.set_default_timeout(self._timeout)
+        logger.debug("New page opened")
+
+        if url:
+            self._page.goto(url, wait_until="domcontentloaded")
+            logger.info(f"Navigated to {url}")
+
+    @keyword(name="Close Browser")
+    def close_browser(self) -> None:
+        """Close the browser and release all resources.
+
+        Safe to call multiple times — silently does nothing if already closed.
+
+        Examples:
+        | Launch Browser | url=https://example.com |
+        | ...test steps...                          |
+        | [Teardown]    Close Browser               |
+        """
+        logger.info("Closing browser")
+        self._cleanup()
+
+    # ── Navigation ──────────────────────────────────────────────────
+
+    @keyword(name="Navigate To")
+    def navigate_to(
+        self,
+        url: str,
+        wait_until: Literal[
+            "load", "domcontentloaded", "networkidle", "commit"
+        ] = "domcontentloaded",
+        timeout: float | None = None,
+    ) -> None:
+        """Navigate the current page to a URL.
+
+        ``url``         The target URL.
+        ``wait_until``  When to consider navigation done:
+        - ``commit``           — response received
+        - ``domcontentloaded`` — DOM ready (default)
+        - ``load``             — full page load including images
+        - ``networkidle``      — no network activity for 500 ms
+        ``timeout``     Override the default timeout (ms).
+
+        Examples:
+        | Navigate To | https://example.com                          |
+        | Navigate To | https://api.example.com | wait_until=networkidle |
+        """
+        t = float(timeout) if timeout else self._timeout
+        logger.info(f"Navigating to {url} (wait_until={wait_until})")
+        self._active_page.goto(url, wait_until=wait_until, timeout=t)
+        logger.info(f"Navigation complete — URL is now {self._active_page.url}")
+
+    # ── Click & Download ────────────────────────────────────────────
+
+    @keyword(name="Click And Download")
+    def click_and_download(
+        self,
+        selector: str,
+        save_as: str | None = None,
+        timeout: float | None = None,
+    ) -> str:
+        """Click an element that triggers a file download and save it.
+
+        ``selector``  Locator for the download trigger element.
+        ``save_as``   Full destination path.  If omitted the file is saved
+                      to ``download_dir`` with the server-suggested filename.
+        ``timeout``   How long to wait for the download to start (ms).
+
+        Returns the absolute path of the saved file.
+
+        Examples:
+        | ${path}= | Click And Download | css=a.export-btn                       |
+        | ${path}= | Click And Download | id=download | save_as=/tmp/report.pdf  |
+        | ${path}= | Click And Download | text="Download CSV" | timeout=60000    |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._download_timeout
+        logger.info(f"Clicking '{selector}' and waiting for download (timeout={t}ms)")
+
+        with self._active_page.expect_download(timeout=t) as dl_info:
+            self._active_page.click(resolved, timeout=t)
+
+        download: Download = dl_info.value
+        self._last_download = download
+
+        failure = download.failure()
+        if failure:
+            raise RuntimeError(f"Download failed: {failure}")
+
+        if save_as:
+            dest = Path(save_as)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            download.save_as(str(dest))
+        else:
+            dest = self._ensure_download_dir() / download.suggested_filename
+            download.save_as(str(dest))
+
+        abs_path = str(dest.resolve())
+        logger.info(
+            f"Download complete: {download.suggested_filename} → {abs_path}",
+            html=False,
+        )
+        return abs_path
+
+    # ── Wait for Download ───────────────────────────────────────────
+
+    @keyword(name="Wait For Download")
+    def wait_for_download(
+        self,
+        save_as: str | None = None,
+        timeout: float | None = None,
+    ) -> str:
+        """Wait for a download triggered by JavaScript, timer, or redirect.
+
+        Use this when the download is *not* triggered by a direct click
+        (e.g. auto-export, JS ``window.location``, deferred link).
+
+        ``save_as``   Destination path (optional — defaults to download_dir).
+        ``timeout``   How long to wait (ms).
+
+        Returns the absolute path of the saved file.
+
+        Examples:
+        | # JS triggers download after 3 seconds          |
+        | Wait For Download | timeout=10000                |
+        |                                                  |
+        | # Save to a specific path                        |
+        | ${path}= | Wait For Download | save_as=/tmp/data.csv |
+        """
+        t = float(timeout) if timeout else self._download_timeout
+        logger.info(f"Waiting for download event (timeout={t}ms)")
+
+        with self._active_page.expect_download(timeout=t) as dl_info:
+            pass  # download is already in-flight or will fire shortly
+
+        download: Download = dl_info.value
+        self._last_download = download
+
+        failure = download.failure()
+        if failure:
+            raise RuntimeError(f"Download failed: {failure}")
+
+        if save_as:
+            dest = Path(save_as)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            download.save_as(str(dest))
+        else:
+            dest = self._ensure_download_dir() / download.suggested_filename
+            download.save_as(str(dest))
+
+        abs_path = str(dest.resolve())
+        logger.info(f"Download captured: {download.suggested_filename} → {abs_path}")
+        return abs_path
+
+    @keyword(name="Get Last Download Info")
+    def get_last_download_info(self) -> dict:
+        """Return metadata about the most recent download.
+
+        Returns a dictionary with keys:
+        - ``url``:                 the URL the download came from
+        - ``suggested_filename``:  filename suggested by the server
+        - ``failure``:             error string or None
+
+        Examples:
+        | Click And Download    | css=.dl-btn        |
+        | ${info}=              | Get Last Download Info |
+        | Should Be Equal       | ${info}[suggested_filename] | report.pdf |
+        """
+        if self._last_download is None:
+            raise RuntimeError("No download has occurred yet.")
+        info = {
+            "url": self._last_download.url,
+            "suggested_filename": self._last_download.suggested_filename,
+            "failure": self._last_download.failure(),
+        }
+        logger.info(f"Last download info: {info}")
+        return info
+
+    # ── Wait for Element — visible + enabled ────────────────────────
+
+    @keyword(name="Wait For Element Visible And Enabled")
+    def wait_for_element_visible_and_enabled(
+        self,
+        selector: str,
+        timeout: float | None = None,
+        poll_interval: float = 250,
+    ) -> None:
+        """Wait until an element is **both** visible **and** enabled.
+
+        Unlike Playwright's built-in ``wait_for(state='visible')`` which
+        only checks visibility, this keyword also verifies the element is
+        not disabled — making it safe to interact with immediately after.
+
+        ``selector``       Element locator.
+        ``timeout``        Max wait time in ms.
+        ``poll_interval``  How often to re-check (ms, default 250).
+
+        Examples:
+        | Wait For Element Visible And Enabled | css=button.submit          |
+        | Wait For Element Visible And Enabled | id=confirm | timeout=10000 |
+        | Click                                | css=button.submit          |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        interval_s = float(poll_interval) / 1000
+        deadline = time.monotonic() + t / 1000
+        locator = self._active_page.locator(resolved)
+
+        logger.info(f"Waiting for '{selector}' to be visible AND enabled (timeout={t}ms)")
+
+        last_state = ""
+        while True:
+            try:
+                visible = locator.is_visible(timeout=1000)
+                enabled = locator.is_enabled(timeout=1000) if visible else False
+            except Exception:
+                visible, enabled = False, False
+
+            if visible and enabled:
+                logger.info(f"Element '{selector}' is visible and enabled")
+                return
+
+            state = f"visible={visible}, enabled={enabled}"
+            if state != last_state:
+                logger.debug(f"Element '{selector}': {state} — still waiting")
+                last_state = state
+
+            if time.monotonic() > deadline:
+                raise AssertionError(
+                    f"Element '{selector}' not visible+enabled within {t}ms "
+                    f"(last state: {state})"
+                )
+            time.sleep(interval_s)
+
+    @keyword(name="Wait For Element Visible")
+    def wait_for_element_visible(
+        self,
+        selector: str,
+        timeout: float | None = None,
+    ) -> None:
+        """Wait until an element is visible on the page.
+
+        ``selector``  Element locator.
+        ``timeout``   Max wait time in ms.
+
+        Examples:
+        | Wait For Element Visible | css=.modal         |
+        | Wait For Element Visible | text="Success"     |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        logger.info(f"Waiting for '{selector}' to be visible (timeout={t}ms)")
+        self._active_page.locator(resolved).wait_for(state="visible", timeout=t)
+        logger.info(f"Element '{selector}' is now visible")
+
+    @keyword(name="Wait For Element Hidden")
+    def wait_for_element_hidden(
+        self,
+        selector: str,
+        timeout: float | None = None,
+    ) -> None:
+        """Wait until an element disappears or becomes hidden.
+
+        Examples:
+        | Click               | css=.close-btn           |
+        | Wait For Element Hidden | css=.modal            |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        logger.info(f"Waiting for '{selector}' to be hidden (timeout={t}ms)")
+        self._active_page.locator(resolved).wait_for(state="hidden", timeout=t)
+        logger.info(f"Element '{selector}' is now hidden")
+
+    @keyword(name="Wait For Element Enabled")
+    def wait_for_element_enabled(
+        self,
+        selector: str,
+        timeout: float | None = None,
+        poll_interval: float = 250,
+    ) -> None:
+        """Wait until an element is enabled (not disabled).
+
+        Examples:
+        | Wait For Element Enabled | css=button#submit           |
+        | Wait For Element Enabled | id=save-btn | timeout=5000  |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        interval_s = float(poll_interval) / 1000
+        deadline = time.monotonic() + t / 1000
+        locator = self._active_page.locator(resolved)
+
+        logger.info(f"Waiting for '{selector}' to be enabled (timeout={t}ms)")
+        while True:
+            try:
+                if locator.is_enabled(timeout=1000):
+                    logger.info(f"Element '{selector}' is now enabled")
+                    return
+            except Exception:
+                pass
+            if time.monotonic() > deadline:
+                raise AssertionError(
+                    f"Element '{selector}' not enabled within {t}ms"
+                )
+            time.sleep(interval_s)
+
+    @keyword(name="Wait For Load State")
+    def wait_for_load_state(
+        self,
+        state: Literal["load", "domcontentloaded", "networkidle"] = "load",
+        timeout: float | None = None,
+    ) -> None:
+        """Wait for the page to reach a specific load state.
+
+        ``state``  One of:
+        - ``domcontentloaded`` — DOM is ready
+        - ``load``             — full page load (default)
+        - ``networkidle``      — no network requests for 500 ms
+
+        Examples:
+        | Navigate To         | https://example.com          |
+        | Wait For Load State | networkidle                  |
+        """
+        t = float(timeout) if timeout else self._timeout
+        logger.info(f"Waiting for load state: {state}")
+        self._active_page.wait_for_load_state(state, timeout=t)
+        logger.info(f"Load state '{state}' reached")
