@@ -564,3 +564,726 @@ class PlaywrightLibrary:
         logger.info(f"Waiting for load state: {state}")
         self._active_page.wait_for_load_state(state, timeout=t)
         logger.info(f"Load state '{state}' reached")
+
+    # ═════════════════════════════════════════════════════════════════
+    #  ASSERTIONS
+    # ═════════════════════════════════════════════════════════════════
+
+    # ── Element visibility ──────────────────────────────────────────
+
+    @keyword(name="Element Should Be Visible")
+    def element_should_be_visible(
+        self,
+        selector: str,
+        message: str | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """Assert that an element is visible on the page.
+
+        Examples:
+        | Element Should Be Visible | css=.welcome-banner                    |
+        | Element Should Be Visible | id=modal | message=Modal didn't appear |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        try:
+            self._active_page.locator(resolved).wait_for(state="visible", timeout=t)
+        except Exception:
+            raise AssertionError(
+                message or f"Element '{selector}' is not visible"
+            )
+        logger.info(f"PASS: Element '{selector}' is visible")
+
+    @keyword(name="Element Should Not Be Visible")
+    def element_should_not_be_visible(
+        self,
+        selector: str,
+        message: str | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """Assert that an element is not visible (hidden or absent).
+
+        Examples:
+        | Click                        | css=.close-btn       |
+        | Element Should Not Be Visible | css=.modal          |
+        """
+        resolved = _resolve_selector(selector)
+        t = float(timeout) if timeout else self._timeout
+        try:
+            self._active_page.locator(resolved).wait_for(state="hidden", timeout=t)
+        except Exception:
+            raise AssertionError(
+                message or f"Element '{selector}' is still visible"
+            )
+        logger.info(f"PASS: Element '{selector}' is not visible")
+
+    # ── Element existence ───────────────────────────────────────────
+
+    @keyword(name="Page Should Have Element")
+    def page_should_have_element(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that at least one element matches the selector in the DOM.
+
+        The element may be hidden — this only checks DOM presence.
+
+        Examples:
+        | Page Should Have Element | css=input[name="csrf"]            |
+        | Page Should Have Element | data-testid=sidebar               |
+        """
+        resolved = _resolve_selector(selector)
+        count = self._active_page.locator(resolved).count()
+        if count == 0:
+            raise AssertionError(
+                message or f"No element found matching '{selector}'"
+            )
+        logger.info(f"PASS: Found {count} element(s) matching '{selector}'")
+
+    @keyword(name="Page Should Not Have Element")
+    def page_should_not_have_element(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that no element matches the selector in the DOM.
+
+        Examples:
+        | Page Should Not Have Element | css=.error-toast |
+        """
+        resolved = _resolve_selector(selector)
+        count = self._active_page.locator(resolved).count()
+        if count > 0:
+            raise AssertionError(
+                message or f"Expected no elements for '{selector}', found {count}"
+            )
+        logger.info(f"PASS: No elements matching '{selector}'")
+
+    # ── Element enabled / disabled ──────────────────────────────────
+
+    @keyword(name="Element Should Be Enabled")
+    def element_should_be_enabled(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element is enabled (not disabled).
+
+        Examples:
+        | Element Should Be Enabled | css=button#submit |
+        """
+        resolved = _resolve_selector(selector)
+        if not self._active_page.locator(resolved).is_enabled():
+            raise AssertionError(
+                message or f"Element '{selector}' is disabled"
+            )
+        logger.info(f"PASS: Element '{selector}' is enabled")
+
+    @keyword(name="Element Should Be Disabled")
+    def element_should_be_disabled(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element is disabled.
+
+        Examples:
+        | Element Should Be Disabled | css=button#submit |
+        """
+        resolved = _resolve_selector(selector)
+        if not self._active_page.locator(resolved).is_disabled():
+            raise AssertionError(
+                message or f"Element '{selector}' is not disabled"
+            )
+        logger.info(f"PASS: Element '{selector}' is disabled")
+
+    # ── Text assertions ─────────────────────────────────────────────
+
+    @keyword(name="Element Text Should Be")
+    def element_text_should_be(
+        self,
+        selector: str,
+        expected: str,
+        ignore_case: bool = False,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element's text content exactly equals the expected value.
+
+        ``ignore_case``  If True, comparison is case-insensitive.
+
+        Examples:
+        | Element Text Should Be | css=h1            | Welcome        |
+        | Element Text Should Be | css=.status       | ACTIVE | ignore_case=True |
+        """
+        resolved = _resolve_selector(selector)
+        actual = (self._active_page.locator(resolved).text_content() or "").strip()
+        exp = expected.strip()
+        a, e = (actual.lower(), exp.lower()) if ignore_case else (actual, exp)
+        if a != e:
+            raise AssertionError(
+                message or f"Element '{selector}' text is '{actual}', expected '{expected}'"
+            )
+        logger.info(f"PASS: Element '{selector}' text equals '{expected}'")
+
+    @keyword(name="Element Should Contain Text")
+    def element_should_contain_text(
+        self,
+        selector: str,
+        expected: str,
+        ignore_case: bool = False,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element's text contains the expected substring.
+
+        Examples:
+        | Element Should Contain Text | css=.alert     | successfully saved |
+        | Element Should Contain Text | css=p.message  | error | ignore_case=True |
+        """
+        resolved = _resolve_selector(selector)
+        actual = (self._active_page.locator(resolved).text_content() or "").strip()
+        a, e = (actual.lower(), expected.lower()) if ignore_case else (actual, expected)
+        if e not in a:
+            raise AssertionError(
+                message
+                or f"Element '{selector}' text '{actual}' does not contain '{expected}'"
+            )
+        logger.info(f"PASS: Element '{selector}' contains text '{expected}'")
+
+    @keyword(name="Element Should Not Contain Text")
+    def element_should_not_contain_text(
+        self,
+        selector: str,
+        unexpected: str,
+        ignore_case: bool = False,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element's text does NOT contain a substring.
+
+        Examples:
+        | Element Should Not Contain Text | css=.status | error |
+        """
+        resolved = _resolve_selector(selector)
+        actual = (self._active_page.locator(resolved).text_content() or "").strip()
+        a, u = (actual.lower(), unexpected.lower()) if ignore_case else (actual, unexpected)
+        if u in a:
+            raise AssertionError(
+                message
+                or f"Element '{selector}' text '{actual}' unexpectedly contains '{unexpected}'"
+            )
+        logger.info(f"PASS: Element '{selector}' does not contain '{unexpected}'")
+
+    @keyword(name="Page Should Contain Text")
+    def page_should_contain_text(
+        self,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the page body contains the expected text.
+
+        Examples:
+        | Page Should Contain Text | Welcome back, John |
+        """
+        body = self._active_page.locator("body").text_content() or ""
+        if expected not in body:
+            raise AssertionError(
+                message or f"Page does not contain text '{expected}'"
+            )
+        logger.info(f"PASS: Page contains text '{expected}'")
+
+    @keyword(name="Page Should Not Contain Text")
+    def page_should_not_contain_text(
+        self,
+        unexpected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the page body does NOT contain the text.
+
+        Examples:
+        | Page Should Not Contain Text | Internal Server Error |
+        """
+        body = self._active_page.locator("body").text_content() or ""
+        if unexpected in body:
+            raise AssertionError(
+                message or f"Page unexpectedly contains text '{unexpected}'"
+            )
+        logger.info(f"PASS: Page does not contain '{unexpected}'")
+
+    # ── Attribute assertions ────────────────────────────────────────
+
+    @keyword(name="Element Attribute Should Be")
+    def element_attribute_should_be(
+        self,
+        selector: str,
+        attribute: str,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element's attribute equals the expected value.
+
+        Examples:
+        | Element Attribute Should Be | css=input#email | type      | email    |
+        | Element Attribute Should Be | css=a.home      | href      | /        |
+        | Element Attribute Should Be | css=img.logo    | alt       | Company  |
+        """
+        resolved = _resolve_selector(selector)
+        actual = self._active_page.locator(resolved).get_attribute(attribute)
+        if actual != expected:
+            raise AssertionError(
+                message
+                or f"Element '{selector}' attribute '{attribute}' is '{actual}', "
+                   f"expected '{expected}'"
+            )
+        logger.info(f"PASS: '{selector}' [{attribute}] == '{expected}'")
+
+    @keyword(name="Element Attribute Should Contain")
+    def element_attribute_should_contain(
+        self,
+        selector: str,
+        attribute: str,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element's attribute value contains a substring.
+
+        Examples:
+        | Element Attribute Should Contain | css=div.card | class | active |
+        | Element Attribute Should Contain | css=a        | href  | /api   |
+        """
+        resolved = _resolve_selector(selector)
+        actual = self._active_page.locator(resolved).get_attribute(attribute) or ""
+        if expected not in actual:
+            raise AssertionError(
+                message
+                or f"Element '{selector}' attribute '{attribute}' value '{actual}' "
+                   f"does not contain '{expected}'"
+            )
+        logger.info(f"PASS: '{selector}' [{attribute}] contains '{expected}'")
+
+    @keyword(name="Element Should Have Attribute")
+    def element_should_have_attribute(
+        self,
+        selector: str,
+        attribute: str,
+        message: str | None = None,
+    ) -> str:
+        """Assert that an element has the specified attribute (any value).
+
+        Returns the attribute value.
+
+        Examples:
+        | Element Should Have Attribute | css=input  | required  |
+        | ${val}= | Element Should Have Attribute | css=a | data-id |
+        """
+        resolved = _resolve_selector(selector)
+        val = self._active_page.locator(resolved).get_attribute(attribute)
+        if val is None:
+            raise AssertionError(
+                message
+                or f"Element '{selector}' does not have attribute '{attribute}'"
+            )
+        logger.info(f"PASS: '{selector}' has attribute '{attribute}' = '{val}'")
+        return val
+
+    # ── CSS class assertions ────────────────────────────────────────
+
+    @keyword(name="Element Should Have Class")
+    def element_should_have_class(
+        self,
+        selector: str,
+        class_name: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element has a specific CSS class.
+
+        Examples:
+        | Element Should Have Class | css=.nav-item.first | active   |
+        | Element Should Have Class | id=alert            | alert-danger |
+        """
+        resolved = _resolve_selector(selector)
+        classes = self._active_page.locator(resolved).get_attribute("class") or ""
+        if class_name not in classes.split():
+            raise AssertionError(
+                message
+                or f"Element '{selector}' classes '{classes}' do not include '{class_name}'"
+            )
+        logger.info(f"PASS: '{selector}' has class '{class_name}'")
+
+    @keyword(name="Element Should Not Have Class")
+    def element_should_not_have_class(
+        self,
+        selector: str,
+        class_name: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element does NOT have a specific CSS class.
+
+        Examples:
+        | Element Should Not Have Class | css=.tab | disabled |
+        """
+        resolved = _resolve_selector(selector)
+        classes = self._active_page.locator(resolved).get_attribute("class") or ""
+        if class_name in classes.split():
+            raise AssertionError(
+                message
+                or f"Element '{selector}' unexpectedly has class '{class_name}'"
+            )
+        logger.info(f"PASS: '{selector}' does not have class '{class_name}'")
+
+    # ── Element count ───────────────────────────────────────────────
+
+    @keyword(name="Element Count Should Be")
+    def element_count_should_be(
+        self,
+        selector: str,
+        expected: int,
+        operator: Literal["==", ">=", "<=", ">", "<"] = "==",
+        message: str | None = None,
+    ) -> int:
+        """Assert the number of elements matching a selector.
+
+        ``operator``  Comparison: == (default), >=, <=, >, <
+
+        Returns the actual count.
+
+        Examples:
+        | Element Count Should Be | css=.list-item | 5             |
+        | Element Count Should Be | css=.error     | 0             |
+        | Element Count Should Be | css=tr.row     | 3  | >=       |
+        """
+        resolved = _resolve_selector(selector)
+        actual = self._active_page.locator(resolved).count()
+        expected = int(expected)
+        ops = {
+            "==": lambda a, b: a == b,
+            ">=": lambda a, b: a >= b,
+            "<=": lambda a, b: a <= b,
+            ">": lambda a, b: a > b,
+            "<": lambda a, b: a < b,
+        }
+        cmp = ops.get(operator)
+        if cmp is None:
+            raise ValueError(f"Invalid operator '{operator}'. Use: ==, >=, <=, >, <")
+        if not cmp(actual, expected):
+            raise AssertionError(
+                message
+                or f"Element count for '{selector}': {actual} is not {operator} {expected}"
+            )
+        logger.info(f"PASS: '{selector}' count {actual} {operator} {expected}")
+        return actual
+
+    # ── Checkbox / radio ────────────────────────────────────────────
+
+    @keyword(name="Checkbox Should Be Checked")
+    def checkbox_should_be_checked(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that a checkbox or radio button is checked.
+
+        Examples:
+        | Checkbox Should Be Checked | css=input#agree |
+        """
+        resolved = _resolve_selector(selector)
+        if not self._active_page.locator(resolved).is_checked():
+            raise AssertionError(
+                message or f"Checkbox '{selector}' is not checked"
+            )
+        logger.info(f"PASS: Checkbox '{selector}' is checked")
+
+    @keyword(name="Checkbox Should Not Be Checked")
+    def checkbox_should_not_be_checked(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that a checkbox or radio button is NOT checked.
+
+        Examples:
+        | Checkbox Should Not Be Checked | css=input#newsletter |
+        """
+        resolved = _resolve_selector(selector)
+        if self._active_page.locator(resolved).is_checked():
+            raise AssertionError(
+                message or f"Checkbox '{selector}' is unexpectedly checked"
+            )
+        logger.info(f"PASS: Checkbox '{selector}' is not checked")
+
+    # ── Input value ─────────────────────────────────────────────────
+
+    @keyword(name="Input Value Should Be")
+    def input_value_should_be(
+        self,
+        selector: str,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an input/textarea's current value equals the expected string.
+
+        Examples:
+        | Input Value Should Be | css=input#email | user@example.com |
+        """
+        resolved = _resolve_selector(selector)
+        actual = self._active_page.locator(resolved).input_value()
+        if actual != expected:
+            raise AssertionError(
+                message
+                or f"Input '{selector}' value is '{actual}', expected '{expected}'"
+            )
+        logger.info(f"PASS: Input '{selector}' value is '{expected}'")
+
+    @keyword(name="Input Value Should Contain")
+    def input_value_should_contain(
+        self,
+        selector: str,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an input/textarea's value contains a substring.
+
+        Examples:
+        | Input Value Should Contain | css=textarea#notes | TODO |
+        """
+        resolved = _resolve_selector(selector)
+        actual = self._active_page.locator(resolved).input_value()
+        if expected not in actual:
+            raise AssertionError(
+                message
+                or f"Input '{selector}' value '{actual}' does not contain '{expected}'"
+            )
+        logger.info(f"PASS: Input '{selector}' value contains '{expected}'")
+
+    # ── Page title / URL ────────────────────────────────────────────
+
+    @keyword(name="Title Should Be")
+    def title_should_be(
+        self,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the page title exactly equals the expected value.
+
+        Examples:
+        | Title Should Be | Dashboard - MyApp |
+        """
+        actual = self._active_page.title()
+        if actual != expected:
+            raise AssertionError(
+                message or f"Title is '{actual}', expected '{expected}'"
+            )
+        logger.info(f"PASS: Title is '{expected}'")
+
+    @keyword(name="Title Should Contain")
+    def title_should_contain(
+        self,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the page title contains a substring.
+
+        Examples:
+        | Title Should Contain | Dashboard |
+        """
+        actual = self._active_page.title()
+        if expected not in actual:
+            raise AssertionError(
+                message or f"Title '{actual}' does not contain '{expected}'"
+            )
+        logger.info(f"PASS: Title contains '{expected}'")
+
+    @keyword(name="Url Should Be")
+    def url_should_be(
+        self,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the current page URL exactly equals the expected value.
+
+        Examples:
+        | Url Should Be | https://example.com/dashboard |
+        """
+        actual = self._active_page.url
+        if actual != expected:
+            raise AssertionError(
+                message or f"URL is '{actual}', expected '{expected}'"
+            )
+        logger.info(f"PASS: URL is '{expected}'")
+
+    @keyword(name="Url Should Contain")
+    def url_should_contain(
+        self,
+        expected: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the current page URL contains a substring.
+
+        Examples:
+        | Url Should Contain | /dashboard |
+        | Url Should Contain | token=     |
+        """
+        actual = self._active_page.url
+        if expected not in actual:
+            raise AssertionError(
+                message or f"URL '{actual}' does not contain '{expected}'"
+            )
+        logger.info(f"PASS: URL contains '{expected}'")
+
+    @keyword(name="Url Should Match")
+    def url_should_match(
+        self,
+        pattern: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that the current URL matches a regex pattern.
+
+        Examples:
+        | Url Should Match | https://.*\\.example\\.com/dashboard.* |
+        | Url Should Match | .*/users/\\d+                          |
+        """
+        actual = self._active_page.url
+        if not re.search(pattern, actual):
+            raise AssertionError(
+                message or f"URL '{actual}' does not match pattern '{pattern}'"
+            )
+        logger.info(f"PASS: URL matches pattern '{pattern}'")
+
+    # ── Focus ───────────────────────────────────────────────────────
+
+    @keyword(name="Element Should Be Focused")
+    def element_should_be_focused(
+        self,
+        selector: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that an element currently has focus.
+
+        Examples:
+        | Click                        | css=input#search      |
+        | Element Should Be Focused    | css=input#search      |
+        """
+        resolved = _resolve_selector(selector)
+        is_focused = self._active_page.locator(resolved).evaluate(
+            "el => el === document.activeElement"
+        )
+        if not is_focused:
+            raise AssertionError(
+                message or f"Element '{selector}' does not have focus"
+            )
+        logger.info(f"PASS: Element '{selector}' is focused")
+
+    # ── Download file assertions ────────────────────────────────────
+
+    @keyword(name="Downloaded File Should Exist")
+    def downloaded_file_should_exist(
+        self,
+        path: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that a file exists at the given path.
+
+        Examples:
+        | ${path}= | Click And Download        | css=.dl-btn       |
+        | Downloaded File Should Exist          | ${path}           |
+        """
+        if not Path(path).is_file():
+            raise AssertionError(
+                message or f"File does not exist: {path}"
+            )
+        size = Path(path).stat().st_size
+        logger.info(f"PASS: File exists: {path} ({size} bytes)")
+
+    @keyword(name="Downloaded File Should Not Be Empty")
+    def downloaded_file_should_not_be_empty(
+        self,
+        path: str,
+        message: str | None = None,
+    ) -> None:
+        """Assert that a downloaded file exists and is not empty (> 0 bytes).
+
+        Examples:
+        | ${path}= | Click And Download               | css=.dl-btn  |
+        | Downloaded File Should Not Be Empty          | ${path}      |
+        """
+        p = Path(path)
+        if not p.is_file():
+            raise AssertionError(
+                message or f"File does not exist: {path}"
+            )
+        size = p.stat().st_size
+        if size == 0:
+            raise AssertionError(
+                message or f"File is empty (0 bytes): {path}"
+            )
+        logger.info(f"PASS: File is not empty: {path} ({size} bytes)")
+
+    @keyword(name="Downloaded File Should Contain")
+    def downloaded_file_should_contain(
+        self,
+        path: str,
+        expected_text: str,
+        encoding: str = "utf-8",
+        message: str | None = None,
+    ) -> None:
+        """Assert that a downloaded text file contains the expected string.
+
+        Works for CSV, JSON, XML, TXT, HTML, etc.
+
+        Examples:
+        | ${path}= | Click And Download              | css=.export      |
+        | Downloaded File Should Contain | ${path}   | "total": 42      |
+        | Downloaded File Should Contain | ${path}   | Name,Email,Phone |
+        """
+        p = Path(path)
+        if not p.is_file():
+            raise AssertionError(f"File does not exist: {path}")
+        content = p.read_text(encoding=encoding)
+        if expected_text not in content:
+            preview = content[:500]
+            raise AssertionError(
+                message
+                or f"File '{path}' does not contain '{expected_text}'.\n"
+                   f"File preview (first 500 chars):\n{preview}"
+            )
+        logger.info(f"PASS: File contains '{expected_text}'")
+
+    @keyword(name="Downloaded File Size Should Be")
+    def downloaded_file_size_should_be(
+        self,
+        path: str,
+        expected_size: int,
+        operator: Literal["==", ">=", "<=", ">", "<"] = ">=",
+        message: str | None = None,
+    ) -> int:
+        """Assert the size of a downloaded file in bytes.
+
+        ``operator``  Comparison: == , >= (default), <= , > , <
+
+        Returns the actual file size.
+
+        Examples:
+        | Downloaded File Size Should Be | ${path} | 1024         |
+        | Downloaded File Size Should Be | ${path} | 0    | >     |
+        """
+        p = Path(path)
+        if not p.is_file():
+            raise AssertionError(f"File does not exist: {path}")
+        actual = p.stat().st_size
+        expected_size = int(expected_size)
+        ops = {
+            "==": lambda a, b: a == b,
+            ">=": lambda a, b: a >= b,
+            "<=": lambda a, b: a <= b,
+            ">": lambda a, b: a > b,
+            "<": lambda a, b: a < b,
+        }
+        cmp = ops.get(operator)
+        if cmp is None:
+            raise ValueError(f"Invalid operator '{operator}'")
+        if not cmp(actual, expected_size):
+            raise AssertionError(
+                message
+                or f"File size {actual} bytes is not {operator} {expected_size} bytes"
+            )
+        logger.info(f"PASS: File size {actual} {operator} {expected_size}")
+        return actual
