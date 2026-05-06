@@ -1,186 +1,1672 @@
-Perfect — you’re absolutely thinking in the right direction, Naruto. 👏
-You’ve got the why, the pain point, and the story — that’s exactly how you write documentation that actually gets read (instead of becoming another 40-page zombie Confluence article).
-
-Let’s structure this so it flows logically, reads like a thought process, and hits both the tech depth and architectural storytelling sweet spot.
-
-⸻
-
-🧱 Recommended Confluence Structure
-
-Title
-
-End-to-End Pact Contract Testing Strategy and Orchestration Model (Frontend → BFF → TIPCO → Guidewire)
-A practical guide to building reliable consumer-driven API integrations with Pact and Azure Pipelines.
-
-⸻
-
-🏁 1. Introduction — The Problem We’re Solving
-
-Start conversational but crisp. Paint the pain that leads to Pact.
-
-Example:
-
-In a distributed ecosystem with multiple integration layers (Frontend → BFF → TIPCO → Guidewire), we often face late-stage failures — where services integrate successfully in isolation (via mocks), but break once deployed together.
-
-Traditional testing (unit + integration) only validates assumptions within one boundary, not across teams.
-	•	Unit tests validate internal logic.
-	•	Integration tests validate mocked dependencies.
-	•	But the moment the real provider changes a field, endpoint, or payload format — the consumer breaks silently, and the issue surfaces too late (often during SIT or production validation).
-
-Contract Testing bridges this gap — shifting API validation left, and making integration predictable and automated.
-
-✅ Goal of this section: make the reader nod in pain — “yep, that’s exactly our problem.”
-
-⸻
-
-📜 2. What Is Contract Testing (and Why Pact?)
-
-This gives context before diving into the mechanics.
-
-Example:
-
-Contract testing ensures that two services — a consumer and a provider — can communicate correctly without requiring full end-to-end integration.
-
-Using the Pact framework, the consumer defines a contract that specifies what it expects from the provider (request → response pairs).
-The provider then verifies this contract against its actual implementation, ensuring compatibility before deployment.
-
-Pact eliminates the need for heavy integration environments by treating contracts as executable agreements between services.
-
-Add a small diagram if you can — one box for Consumer, one for Provider, a contract in the middle.
-
-⸻
-
-⚙️ 3. Why We Need It (Our Context)
-
-Here’s where you plug in your ecosystem and pain.
-
-Example:
-
-In our architecture, the interaction chain flows as:
-Frontend → BFF → TIPCO → Guidewire.
-
-Each layer is owned by a different team, often deployed asynchronously.
-When a provider layer (e.g., BFF or TIPCO) changes its response format or endpoint contract, the dependent consumers (e.g., Frontend or BFF) are not immediately aware — leading to runtime failures.
-
-Pact-based contract testing helps us ensure:
-	•	Consumers can publish their expectations early.
-	•	Providers can verify those expectations before deployment.
-	•	Compatibility is validated continuously through the Pact Broker and CI pipelines.
-
-This eliminates surprises and creates traceability of who broke what.
-
-⸻
-
-🔄 4. Pact Flow Overview (High-Level)
-
-Add a diagram or bullet summary here.
-
-Example:
-
-Pact introduces a clear handshake process between services:
-	1.	Consumer tests generate a Pact file (contract).
-	2.	The Pact Broker stores these contracts.
-	3.	The Provider pipeline fetches and verifies the contracts.
-	4.	Results are published back to the broker.
-	5.	The broker maintains a matrix showing which versions are compatible.
-
-✅ Add your ASCII diagram (or I can generate a visual one for you).
-
-⸻
-
-🧩 5. The Architecture in Our Case
-
-Here’s where you bring in your actual system.
-
-Example:
-
-Consumers: Frontend, BFF
-Providers: BFF, TIPCO, Guidewire
-
-Each layer acts as both consumer and provider depending on its position.
-For example:
-	•	Frontend → BFF (Frontend = consumer, BFF = provider)
-	•	BFF → TIPCO (BFF = consumer, TIPCO = provider)
-	•	TIPCO → Guidewire (TIPCO = consumer, Guidewire = provider)
-
-This chaining of contracts ensures end-to-end compatibility even when backend systems evolve independently.
-
-⸻
-
-🚦 6. Who Triggers What (Automation Model)
-
-Bring in the earlier explanation here.
-
-Sub-sections:
-	•	Consumer Pipeline
-	•	Provider Pipeline
-	•	Broker
-	•	Verification Flow
-	•	Failure Scenarios
-
-✅ Include points like:
-	•	Consumer creates and publishes pact.
-	•	Provider fetches and verifies.
-	•	Provider pipeline fails if incompatible.
-	•	Communication between teams.
-
-⸻
-
-🧱 7. Handling Common Scenarios / FAQs
-
-Make this conversational and practical.
-
-Examples:
-	•	Q: If provider adds new fields?
-→ Test passes; Pact ignores extra fields.
-	•	Q: If provider removes or renames fields?
-→ Verification fails; provider must coordinate with consumer.
-	•	Q: Who fixes the contract?
-→ Usually consumer (they redefine expectations).
-	•	Q: Does the consumer pipeline auto-run on provider change?
-→ No; provider pipeline detects breakages.
-
-⸻
-
-🧠 8. Implementation in Azure
-
-This section ties the whole story to your environment.
-
-Include:
-	•	Pact Broker hosting (Azure Container Registry + Web App or Docker)
-	•	Pipelines (Consumer → Broker publish → Provider → Verify → Broker update)
-	•	“can-i-deploy” usage for gating production deployment.
-
-⸻
-
-🧩 9. Benefits & Impact
-
-Close with a results-driven summary:
-
-	•	Shifts integration validation left.
-	•	Reduces SIT integration failures by X%.
-	•	Enables independent deployability across services.
-	•	Improves traceability of compatibility across releases.
-	•	Makes contract ownership explicit between teams.
-
-⸻
-
-📘 10. References
-	•	Pact Documentation
-	•	Pact Broker
-	•	Pact JS
-	•	Pact Python / Pactman
-
-⸻
-
-💬 TL;DR Summary of Writing Approach
-
-You want this to read like a journey:
-
-“Here’s the problem we face → here’s why contract testing solves it → here’s how Pact works → here’s how we implemented it → here’s what it gives us.”
-
-That’s how you win both the technical crowd and architect reviewers.
-
-⸻
-
-Would you like me to give you a ready-made Confluence template (markdown-style) version of this structure with proper headings and example paragraphs filled in — so you can just paste it directly into Confluence and tweak it for your setup?
+# mfaw — Full Implementation Specification
+
+> Single source of truth for building `mfaw` (Multi-Framework Agentic Workspace).
+> A pip-installable, cross-platform, two-layer agent-asset manager.
+> Inspired by AW (`~/.aw-ecc`), redesigned for Python packaging, Windows safety,
+> and reversible installs.
+
+---
+
+## Table of Contents
+
+1. [Vision & Scope](#1-vision--scope)
+2. [Architecture](#2-architecture)
+3. [Repository Layout](#3-repository-layout)
+4. [Data Model](#4-data-model)
+5. [Core Concepts](#5-core-concepts)
+6. [CLI Specification](#6-cli-specification)
+7. [Sync Algorithm](#7-sync-algorithm)
+8. [Stub / Symlink Strategy](#8-stub--symlink-strategy)
+9. [Adapter ABC & Implementations](#9-adapter-abc--implementations)
+10. [Per-Repo Registry Layer](#10-per-repo-registry-layer)
+11. [Git Hook Integration](#11-git-hook-integration)
+12. [Publish Workflow](#12-publish-workflow)
+13. [State Ledgers](#13-state-ledgers)
+14. [Schemas](#14-schemas)
+15. [Error Handling & Exit Codes](#15-error-handling--exit-codes)
+16. [Concurrency & Atomicity](#16-concurrency--atomicity)
+17. [Testing Strategy](#17-testing-strategy)
+18. [Packaging & Distribution](#18-packaging--distribution)
+19. [Implementation Order](#19-implementation-order)
+20. [Acceptance Criteria](#20-acceptance-criteria)
+21. [Appendix A — File-by-File Skeletons](#appendix-a--file-by-file-skeletons)
+
+---
+
+## 1. Vision & Scope
+
+### Problem
+
+Teams using AI coding assistants (Claude Code, Cursor, Codex, Windsurf) accumulate
+skills, agents, slash commands, and rules. Today these live as ad-hoc files inside
+each user's `~/.claude/`, `~/.cursor/`, etc. — un-versioned, un-shareable, drifting
+between teammates, untestable, impossible to onboard.
+
+### Goal
+
+A single Python CLI (`mfaw`) that:
+
+1. Stores agent assets (skills, agents, rules, commands, hooks) in **one
+   git-versioned source tree**.
+2. Projects them into **multiple IDE runtimes** via per-tool adapters.
+3. Supports **two layers**: a global install (per user) and a per-project
+   overlay (per repo).
+4. Is **reversibly installable** — every disk mutation is recorded and
+   removable.
+5. Works on **macOS, Linux, Windows** including non-admin Windows.
+6. Lets contributors **publish back upstream** with `mfaw publish` —
+   diff-aware, schema-validated, ownership-routed PRs.
+
+### Non-Goals (v1)
+
+- A web UI.
+- A central registry server.
+- Skills written in code (only markdown).
+- Hot-reload of skills inside a running IDE session (that's the IDE's job).
+- Cross-team skill discovery / search.
+
+---
+
+## 2. Architecture
+
+### Three-layer model
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  📦 mfaw repo (pip-installable, git-versioned)                     │
+│                                                                     │
+│   src/mfaw/             content/             schema/                │
+│     cli.py                skills/              skill.schema.json    │
+│     commands/             agents/              manifest.schema.json │
+│     adapters/             rules/               state.schema.json    │
+│       base.py             commands/                                 │
+│       claude.py           manifest.json                             │
+│       cursor.py           adapters/{claude,cursor}/                 │
+└──────┬──────────────────────────────────────────────────────────────┘
+       │  pip install mfaw
+       ▼
+   $ mfaw <init|sync|publish|nuke|doctor|status|list|use>
+       │
+       │  resolves: global ⊕ project → effective set
+       │  projects: effective set → adapter targets
+       ▼
+┌─────────────────────────┐    ┌─────────────────────────┐
+│  ~/.claude/             │    │  ~/.cursor/             │
+│   skills/    (stubs)    │    │   rules/*.mdc           │
+│   commands/  (stubs)    │    │                         │
+│   settings.json         │    │                         │
+│    hooks._mfaw_managed  │    │                         │
+└─────────────────────────┘    └─────────────────────────┘
+       ▲
+       │  ledgers track every mutation
+       ▼
+   ~/.mfaw/state.json          (global ledger)
+   <repo>/.mfaw/state.json     (project ledger)
+   ~/.mfaw/projects/index.json (project switcher state)
+```
+
+### Three concepts working together
+
+1. **Source of truth** — markdown content in git.
+2. **Indirection** — symlinks (preferred) / junctions (Windows dirs) / copy+sentinel (Windows files).
+3. **Ledgers** — JSON files recording every projection so it can be reversed.
+
+### The two layers
+
+| Layer | Lives at | Owned by | Purpose |
+|---|---|---|---|
+| Global | `~/.mfaw/` | User (per machine) | Default skill set for all projects |
+| Project | `<repo>/.mfaw/` | Project (committed to git) | Pins, additions, exclusions for this repo only |
+
+`global ⊕ project` = **effective set** = what gets projected to `~/.claude/`.
+
+---
+
+## 3. Repository Layout
+
+```
+mfaw/
+├── pyproject.toml
+├── README.md
+├── CHANGELOG.md
+├── LICENSE
+├── .gitignore
+├── .python-version                     # 3.11
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                      # lint + schema-validate + tests
+│       └── publish.yml                 # tag → Artifactory PyPI
+│
+├── src/mfaw/                           # importable as `mfaw`
+│   ├── __init__.py                     # __version__
+│   ├── __main__.py                     # python -m mfaw
+│   ├── cli.py                          # argparse entry; dispatches commands/
+│   ├── errors.py                       # typed exceptions for clean exit codes
+│   ├── logging.py                      # structured logging helper
+│   │
+│   ├── commands/
+│   │   ├── __init__.py
+│   │   ├── init.py                     # mfaw init [--local]
+│   │   ├── sync.py                     # mfaw sync
+│   │   ├── pull.py                     # mfaw pull (git pull on mfaw source)
+│   │   ├── publish.py                  # mfaw publish (replaces push)
+│   │   ├── nuke.py                     # mfaw nuke [--local|--all]
+│   │   ├── doctor.py                   # mfaw doctor
+│   │   ├── status.py                   # mfaw status
+│   │   ├── list_.py                    # mfaw list
+│   │   └── use.py                      # mfaw use <project-path>
+│   │
+│   ├── adapters/
+│   │   ├── __init__.py                 # ADAPTER_REGISTRY
+│   │   ├── base.py                     # ABC: detect/install/uninstall/verify
+│   │   ├── claude.py                   # Claude Code adapter
+│   │   └── cursor.py                   # Cursor adapter
+│   │
+│   ├── manifest.py                     # frontmatter parse + resolution
+│   ├── stub.py                         # symlink/junction/copy+sentinel
+│   ├── state.py                        # dual-ledger r/w with file lock
+│   ├── git.py                          # thin wrapper over git + gh
+│   ├── publish/
+│   │   ├── __init__.py
+│   │   ├── differ.py                   # frontmatter-aware diff
+│   │   ├── semver.py                   # bump rules
+│   │   ├── gates.py                    # validation pipeline
+│   │   ├── pr_body.py                  # PR template renderer
+│   │   └── ownership.py                # OWNERS file parser
+│   │
+│   └── content/                        # ASSETS shipped with the package
+│       ├── manifest.json
+│       ├── skills/
+│       │   └── imwg-fix-cve/
+│       │       ├── SKILL.md
+│       │       ├── README.md
+│       │       └── OWNERS
+│       ├── agents/
+│       ├── rules/
+│       ├── commands/
+│       └── adapters/
+│           ├── claude/
+│           │   ├── plugin.json
+│           │   └── hooks/
+│           │       └── prompt-submit.js
+│           └── cursor/
+│
+├── schema/
+│   ├── skill.schema.json
+│   ├── manifest.schema.json            # global manifest in content/
+│   ├── project-manifest.schema.json    # per-repo .mfaw/manifest.json
+│   └── state.schema.json
+│
+├── tests/
+│   ├── conftest.py
+│   ├── unit/
+│   │   ├── test_manifest_resolution.py
+│   │   ├── test_state_locking.py
+│   │   ├── test_stub_idempotence.py
+│   │   ├── test_semver.py
+│   │   └── test_differ.py
+│   ├── integration/
+│   │   ├── test_init_nuke_roundtrip.py
+│   │   ├── test_local_layer_roundtrip.py
+│   │   ├── test_git_hook_chain.py
+│   │   └── test_publish_dry_run.py
+│   └── fixtures/
+│       ├── sample-skill/
+│       └── sample-project/
+│
+└── docs/
+    ├── architecture.md
+    ├── authoring-skills.md
+    ├── adding-an-adapter.md
+    ├── per-repo-layer.md
+    ├── publish-workflow.md
+    └── windows-notes.md
+```
+
+---
+
+## 4. Data Model
+
+### Asset
+
+The atomic unit. Every skill / agent / rule / command is an "asset."
+
+```python
+@dataclass(frozen=True)
+class Asset:
+    id: str                    # globally unique slug, kebab-case
+    kind: AssetKind            # SKILL | AGENT | RULE | COMMAND
+    version: str               # semver
+    path: Path                 # absolute path to source folder/file
+    owners: list[str]          # from OWNERS file or frontmatter
+    adapters: list[str]        # which adapters this asset targets
+    metadata: dict             # parsed frontmatter
+
+class AssetKind(StrEnum):
+    SKILL = "skill"
+    AGENT = "agent"
+    RULE = "rule"
+    COMMAND = "command"
+```
+
+### EffectiveSet
+
+The resolved set after `global ⊕ project`.
+
+```python
+@dataclass
+class EffectiveSet:
+    assets: dict[str, Asset]   # id -> Asset
+    layer_origin: dict[str, Layer]  # id -> "global" | "project"
+    pins: dict[str, str]       # id -> pinned version
+    excluded: set[str]         # ids excluded by project
+```
+
+### Projection
+
+The act of installing one Asset into one adapter. Recorded in the ledger.
+
+```python
+@dataclass
+class Projection:
+    asset_id: str
+    asset_version: str
+    adapter: str
+    stub_kind: StubKind        # SYMLINK | JUNCTION | COPY
+    source: Path
+    target: Path
+    sentinel_hash: str | None  # for COPY only
+    installed_at: datetime
+    layer: Layer               # "global" | "project"
+```
+
+---
+
+## 5. Core Concepts
+
+### 5.1 Asset Frontmatter
+
+Every `SKILL.md` / agent / command / rule starts with YAML frontmatter:
+
+```markdown
+---
+id: imwg-fix-cve
+name: Fix CVE
+description: One-line user-visible summary
+version: 1.4.2
+kind: skill
+owners: ["@security-team"]
+adapters: ["claude", "cursor"]
+trigger: when the user asks to remediate a CVE
+references:
+  - references/cve-patterns.md
+---
+
+# Body — instructions Claude/Cursor reads
+```
+
+Validated against `schema/skill.schema.json` on every install, sync, and publish.
+
+### 5.2 OWNERS file
+
+Optional `OWNERS` file in any asset directory:
+
+```
+@security-team
+@platform-infra
+```
+
+Used by `mfaw publish` to set PR reviewers. If absent, fall back to
+`metadata.owners` in frontmatter.
+
+### 5.3 Sentinel (for copy-fallback stubs)
+
+When mfaw must copy a file (Windows non-admin, single file), it writes a
+sentinel comment so `nuke` knows it's mfaw-managed:
+
+```markdown
+<!-- mfaw:managed asset=imwg-fix-cve version=1.4.2 sha=abc123… -->
+---
+name: ...
+---
+```
+
+`nuke` removes only files whose first line matches `<!-- mfaw:managed`.
+
+### 5.4 Settings.json hook tagging
+
+When mfaw merges hook entries into `~/.claude/settings.json`, it tags them:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "_mfaw_managed": "asset:imwg-fix-cve@1.4.2",
+        "hooks": [{ "type": "command", "command": "node …" }]
+      }
+    ]
+  }
+}
+```
+
+`nuke` removes only entries with the `_mfaw_managed` field.
+
+---
+
+## 6. CLI Specification
+
+### 6.1 `mfaw init [--local] [--adapters claude,cursor]`
+
+**Global** (no `--local`):
+1. Check Python ≥ 3.11.
+2. Detect available adapters (`~/.claude/`, `~/.cursor/`).
+3. For each detected adapter: read `content/manifest.json`, install all
+   assets where `adapters` includes that adapter.
+4. Merge hook entries into `~/.claude/settings.json` (tagged).
+5. Write `~/.mfaw/state.json`, `~/.mfaw/config.toml`, `~/.mfaw/projects/index.json`.
+6. Print summary table.
+
+**Local** (`--local`):
+1. Refuse if not in a git repo.
+2. Refuse if `<repo>/.mfaw/` exists (suggest `mfaw sync`).
+3. Scaffold `.mfaw/{manifest.json, state.json, content/, README.md}`.
+4. Append `.mfaw/state.json` to `.gitignore`.
+5. Install per-repo git hooks (§11).
+6. Register project in `~/.mfaw/projects/index.json`.
+7. Run `mfaw sync`.
+
+### 6.2 `mfaw sync [--quiet] [--reinstall]`
+
+The hot path. See §7 for full algorithm.
+
+- Resolves effective set, diffs against active ledger, applies plan.
+- `--reinstall`: ignore current ledger, rebuild from scratch.
+- `--quiet`: suppress non-error output (used by git hooks).
+
+### 6.3 `mfaw status`
+
+Prints:
+- Active project (path + last sync time).
+- Effective asset count by kind.
+- Per-adapter asset count.
+- Pending publications (from §12).
+- Drift warnings (assets in ledger missing from disk, or vice versa).
+
+### 6.4 `mfaw list [--available] [--installed] [--adapter NAME]`
+
+- `--installed` (default): what's currently projected.
+- `--available`: what mfaw could ship (global content + project add list).
+- `--adapter`: filter by adapter.
+
+### 6.5 `mfaw use <path>`
+
+Sets `active_project` in `~/.mfaw/config.toml`, runs `sync`. For workflows
+where shell cwd doesn't reflect the active project (some IDEs).
+
+### 6.6 `mfaw doctor [--fix]`
+
+Verifies invariants:
+1. Every entry in global ledger exists on disk at recorded path.
+2. Every projected asset's source exists.
+3. Schemas pass for every asset.
+4. Every `_mfaw_managed` entry in `settings.json` corresponds to a ledger row.
+5. No orphan `mfaw-*` files in `~/.claude/skills/` not in ledger.
+6. Project ledger's `manifest_sha` matches current `manifest.json`.
+
+`--fix` removes orphans and re-syncs.
+
+### 6.7 `mfaw pull`
+
+`git pull --ff-only` on the **mfaw package source** (only meaningful in dev
+installs / editable installs). Then re-runs `sync`. Reports diff.
+
+### 6.8 `mfaw publish [<asset-id>] [--all] [--dry-run] [--draft]`
+
+See §12.
+
+### 6.9 `mfaw nuke [--local] [--all]`
+
+- (default) Removes global projections only.
+- `--local`: removes project layer only (current cwd's `.mfaw/`).
+- `--all`: removes everything mfaw ever touched (global + every known project).
+
+Always idempotent. Always asks for confirmation unless `--yes`.
+
+### 6.10 Global flags
+
+```
+--verbose / -v       # debug logging
+--quiet / -q         # errors only
+--no-color           # disable ANSI
+--config <path>      # override ~/.mfaw/config.toml
+--version            # print version and exit
+--help / -h
+```
+
+### 6.11 Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 1 | generic error |
+| 2 | usage error (bad flags) |
+| 3 | schema validation failed |
+| 4 | filesystem error |
+| 5 | git error |
+| 6 | concurrency conflict (lock held) |
+| 7 | drift detected (doctor) |
+| 64 | reserved |
+
+---
+
+## 7. Sync Algorithm
+
+```python
+def sync(repo_root: Path | None = None, *, reinstall: bool = False) -> SyncReport:
+    # 1. Detect project
+    project = find_project_root(repo_root or Path.cwd())   # walks up looking for .mfaw/
+
+    # 2. Load ledgers
+    global_ledger = StateLedger.load_global()              # ~/.mfaw/state.json
+    project_ledger = StateLedger.load_project(project) if project else None
+
+    # 3. Load manifests
+    global_manifest = load_global_manifest()               # content/manifest.json
+    project_manifest = load_project_manifest(project) if project else None
+
+    # 4. Validate
+    validate_schema(global_manifest, "manifest.schema.json")
+    if project_manifest:
+        validate_schema(project_manifest, "project-manifest.schema.json")
+
+    # 5. Resolve effective set
+    effective = resolve(global_manifest, project_manifest, available_adapters())
+
+    # 6. Diff
+    current = active_ledger_or_empty(reinstall)
+    plan = build_plan(current, effective)
+    # plan = [Action(kind: INSTALL|UPDATE|REMOVE|KEEP, asset, adapter)]
+
+    # 7. Acquire lock
+    with FileLock("~/.mfaw/state.json.lock"):
+
+        # 8. Apply plan
+        report = SyncReport()
+        for action in plan:
+            try:
+                if action.kind == INSTALL:
+                    proj = install_asset(action.asset, action.adapter)
+                    global_ledger.record(proj) if proj.layer == GLOBAL else project_ledger.record(proj)
+                elif action.kind == UPDATE:
+                    uninstall_asset(action.previous)
+                    proj = install_asset(action.asset, action.adapter)
+                    ...
+                elif action.kind == REMOVE:
+                    uninstall_asset(action.previous)
+                    ledger.forget(action.previous)
+                report.add(action, status=OK)
+            except Exception as e:
+                report.add(action, status=FAIL, error=e)
+                # Continue — partial sync is better than nothing.
+
+        # 9. Persist ledgers (atomic)
+        global_ledger.save_atomic()
+        if project_ledger: project_ledger.save_atomic()
+
+        # 10. Update active_project
+        if project:
+            update_active_project(project)
+
+    return report
+```
+
+**Invariants:**
+- Sync is idempotent: run twice → second run is all `KEEP`.
+- Sync is partial-failure-safe: one bad asset doesn't abort the rest.
+- Sync is concurrent-safe: lock prevents two sync runs colliding.
+
+---
+
+## 8. Stub / Symlink Strategy
+
+`stub.py` exposes one function:
+
+```python
+def install(src: Path, dst: Path, *, kind: AssetKind) -> Projection:
+    """
+    Install src at dst using the best available mechanism for this OS+permissions.
+    Returns a Projection with stub_kind set so nuke knows how to remove it.
+    """
+```
+
+### Strategy matrix
+
+| Asset shape | POSIX | Windows admin / Dev Mode | Windows non-admin (default) |
+|---|---|---|---|
+| Directory (skill folder, agent folder) | `os.symlink` | `os.symlink` | **junction** (`subprocess: mklink /J` or `_winapi.CreateJunction`) |
+| Single file (`.md` command, `.mdc` rule) | `os.symlink` | `os.symlink` | **copy + sentinel** |
+| Hook script | `os.symlink` (chmod +x) | `os.symlink` | copy + sentinel |
+| settings.json hook entry | inline JSON merge | inline JSON merge | inline JSON merge |
+
+### Why this matrix
+
+- Directory symlinks require admin on Windows; **junctions don't**.
+- File symlinks require admin OR Developer Mode on Windows; copy is universal.
+- Edits to symlinked sources reflect immediately. Edits to copies require `mfaw sync`.
+  Document this prominently for Windows users.
+
+### Idempotence rules
+
+```python
+def install(src, dst, *, kind):
+    if dst.exists() or dst.is_symlink():
+        existing = inspect(dst)
+        if is_mfaw_managed(existing) and existing.points_to == src:
+            return existing.projection           # no-op
+        if is_mfaw_managed(existing):
+            remove(dst)                          # safe replace
+        else:
+            raise FilesystemError(f"{dst} exists and is not mfaw-managed; refusing to overwrite")
+
+    chosen = choose_strategy(kind)
+    return chosen.apply(src, dst)
+```
+
+### Removal
+
+```python
+def uninstall(projection: Projection) -> None:
+    if not projection.target.exists():
+        return                                   # already gone, fine
+    if projection.stub_kind in (SYMLINK, JUNCTION):
+        unlink_or_rmdir(projection.target)
+    elif projection.stub_kind == COPY:
+        if has_sentinel(projection.target, projection.sentinel_hash):
+            projection.target.unlink()
+        else:
+            raise FilesystemError("sentinel mismatch — refusing to delete user-modified file")
+```
+
+---
+
+## 9. Adapter ABC & Implementations
+
+### `adapters/base.py`
+
+```python
+class Adapter(ABC):
+    name: str                              # "claude" | "cursor" | ...
+
+    @classmethod
+    @abstractmethod
+    def detect(cls) -> bool:
+        """Return True if this adapter's runtime is installed on this machine."""
+
+    @abstractmethod
+    def install_asset(self, asset: Asset) -> Projection: ...
+
+    @abstractmethod
+    def uninstall_asset(self, projection: Projection) -> None: ...
+
+    @abstractmethod
+    def verify_asset(self, projection: Projection) -> bool:
+        """Return True iff the asset is correctly projected on disk."""
+
+    @abstractmethod
+    def merge_hooks(self, hooks: list[HookEntry]) -> None: ...
+
+    @abstractmethod
+    def remove_hooks(self, asset_id: str) -> None: ...
+```
+
+### `adapters/claude.py`
+
+```python
+class ClaudeAdapter(Adapter):
+    name = "claude"
+    home = Path.home() / ".claude"
+
+    @classmethod
+    def detect(cls): return cls.home.exists()
+
+    def install_asset(self, asset):
+        if asset.kind == AssetKind.SKILL:
+            target = self.home / "skills" / f"mfaw-{asset.id}"
+            return stub.install(asset.path, target, kind=DIRECTORY)
+        if asset.kind == AssetKind.COMMAND:
+            target = self.home / "commands" / "mfaw" / f"{asset.id}.md"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            return stub.install(asset.path, target, kind=FILE)
+        if asset.kind == AssetKind.AGENT:
+            target = self.home / "agents" / f"mfaw-{asset.id}.md"
+            return stub.install(asset.path, target, kind=FILE)
+        if asset.kind == AssetKind.RULE:
+            target = self.home / "rules" / f"mfaw-{asset.id}.md"
+            return stub.install(asset.path, target, kind=FILE)
+        raise UnsupportedAssetKind(asset.kind)
+
+    def merge_hooks(self, hooks):
+        settings_path = self.home / "settings.json"
+        with file_lock(settings_path):
+            settings = json.loads(settings_path.read_text() or "{}")
+            settings.setdefault("hooks", {})
+            for h in hooks:
+                settings["hooks"].setdefault(h.event, [])
+                settings["hooks"][h.event].append({
+                    "_mfaw_managed": f"asset:{h.asset_id}@{h.asset_version}",
+                    "description": h.description,
+                    "hooks": h.entries,
+                })
+            atomic_write(settings_path, json.dumps(settings, indent=2))
+
+    def remove_hooks(self, asset_id):
+        settings_path = self.home / "settings.json"
+        with file_lock(settings_path):
+            settings = json.loads(settings_path.read_text() or "{}")
+            for event, entries in settings.get("hooks", {}).items():
+                settings["hooks"][event] = [
+                    e for e in entries
+                    if not str(e.get("_mfaw_managed", "")).startswith(f"asset:{asset_id}@")
+                ]
+            atomic_write(settings_path, json.dumps(settings, indent=2))
+```
+
+### `adapters/cursor.py`
+
+Same pattern, projects to `~/.cursor/rules/*.mdc`.
+
+### Registry
+
+```python
+# adapters/__init__.py
+ADAPTER_REGISTRY: dict[str, type[Adapter]] = {
+    "claude": ClaudeAdapter,
+    "cursor": CursorAdapter,
+}
+
+def detected_adapters() -> list[Adapter]:
+    return [cls() for cls in ADAPTER_REGISTRY.values() if cls.detect()]
+```
+
+Adding a new adapter = one new file in `adapters/` + one line in the registry.
+
+---
+
+## 10. Per-Repo Registry Layer
+
+### `<repo>/.mfaw/manifest.json`
+
+```json
+{
+  "$schema": "https://schemas.mfaw.dev/project-manifest-v1.json",
+  "version": 1,
+  "extends": "global",
+  "pin": {
+    "fix-cve": "1.4.2"
+  },
+  "add": [
+    {
+      "id": "proj-deploy-checks",
+      "type": "skill",
+      "path": ".mfaw/content/skills/proj-deploy-checks"
+    }
+  ],
+  "exclude": ["legacy-style"],
+  "adapters": {
+    "claude": { "enabled": true },
+    "cursor": { "enabled": false }
+  },
+  "metadata": {
+    "owners": ["@team-platform"],
+    "description": "Billing service skills"
+  }
+}
+```
+
+### Resolution rules (deterministic)
+
+```python
+def resolve(global_manifest, project_manifest, adapters) -> EffectiveSet:
+    eff = EffectiveSet()
+
+    # 1. Start with global, filtered by enabled adapters
+    enabled = enabled_adapters(project_manifest, adapters)
+    for asset in global_manifest.assets:
+        if any(a in asset.adapters for a in enabled):
+            eff.add(asset, layer=GLOBAL)
+
+    if not project_manifest:
+        return eff
+
+    # 2. Apply pins
+    for id, version in project_manifest.pin.items():
+        if id not in eff.assets:
+            raise UnknownAsset(id)
+        eff.assets[id] = global_manifest.get_version(id, version)
+        eff.pins[id] = version
+
+    # 3. Apply adds (project wins on collision)
+    for entry in project_manifest.add:
+        asset = load_asset(entry.path, entry.type)
+        if entry.id in eff.assets:
+            warn(f"Project asset {entry.id} shadows global")
+        eff.add(asset, layer=PROJECT)
+
+    # 4. Apply excludes
+    for id in project_manifest.exclude:
+        eff.assets.pop(id, None)
+        eff.excluded.add(id)
+
+    return eff
+```
+
+### `init --local` flow
+
+1. Verify in git repo (`.git` exists).
+2. Refuse if `.mfaw/` already present.
+3. Create:
+   ```
+   .mfaw/
+     manifest.json     # starter: extends=global, no pins/adds/excludes
+     state.json        # empty
+     content/{skills,agents,rules,commands}/.gitkeep
+     README.md         # "this folder is managed by mfaw — see https://..."
+   ```
+4. Append to `.gitignore`:
+   ```
+   .mfaw/state.json
+   ```
+5. Install git hooks (§11).
+6. Register in `~/.mfaw/projects/index.json`:
+   ```json
+   { "<sha256(absolute_path)>": { "path": "...", "registered_at": "..." } }
+   ```
+7. Run `mfaw sync`.
+
+### Switching projects
+
+v1: single active project.
+
+```python
+# ~/.mfaw/config.toml
+[active]
+project = "/Users/x/code/billing"
+```
+
+`sync` always uses `cwd`'s nearest `.mfaw/` first, falling back to `active.project`.
+
+---
+
+## 11. Git Hook Integration
+
+### Hooks installed by `init --local`
+
+`.git/hooks/post-checkout`, `post-merge`, `post-commit`, `post-rewrite`.
+
+Each follows this template:
+
+```bash
+#!/bin/sh
+# mfaw:managed v1
+PREV="$(git config --get mfaw.previousPostCheckout 2>/dev/null)"
+[ -x "$PREV" ] && "$PREV" "$@"
+
+# Skip during rebase / sparse / temp checkouts
+case "$(pwd)" in /tmp/*|/var/folders/*) exit 0 ;; esac
+
+# Background sync — never block git
+if command -v mfaw >/dev/null 2>&1; then
+  (mfaw sync --quiet >/dev/null 2>&1 &)
+fi
+
+exit 0
+```
+
+### Hook chaining
+
+If `.git/hooks/post-checkout` already exists, save its path to
+`git config mfaw.previousPostCheckout` before overwriting. The new hook
+chains to it on every fire.
+
+### Removal (`nuke --local`)
+
+For each hook installed:
+1. Read the file.
+2. Check first 3 lines for `# mfaw:managed v1`.
+3. If present, delete the file. Restore previous from
+   `git config mfaw.previousPostCheckout` if set.
+
+### Why per-repo `.git/hooks/`, not `core.hooksPath`
+
+`core.hooksPath` overrides ALL hooks for that repo and breaks any user
+tooling that uses git hooks (husky, pre-commit). Per-repo `.git/hooks/`
+with chaining is invisible to other tools.
+
+---
+
+## 12. Publish Workflow
+
+### Goal
+
+Author edits → schema-checked, semver-bumped, ownership-routed PR.
+
+### `mfaw publish` flow
+
+```
+1. AUTHOR phase
+   User has edited content/skills/<id>/SKILL.md (or any asset).
+
+2. DETECT phase
+   git diff --name-only against origin/main → changed asset paths.
+   For each, parse old (git show :origin/main:path) and new frontmatter.
+
+3. CLASSIFY phase
+   Diff frontmatter:
+     - Body changed only           → patch bump
+     - Optional field added        → minor bump
+     - Required field removed      → major bump
+     - Trigger / contract changed  → major bump
+   Suggest version. Compare to user-set version. Error if mismatch.
+
+4. VALIDATE phase (gates)
+   ✓ schema valid (against skill.schema.json)
+   ✓ all references/* paths resolve
+   ✓ no secrets (regex sweep — AWS keys, GH tokens, etc.)
+   ✓ frontmatter version matches semver bump rule
+   ✓ owners list non-empty (OWNERS file or frontmatter)
+   ✓ at least one example block in body OR a references/example.md
+   ✓ trigger sentence < 200 chars
+   Each gate prints PASS or FAIL. Any FAIL aborts unless --force.
+
+5. PROPOSE phase
+   Auto-generate PR body:
+     ## What
+     <auto-generated from diff>
+     ## Why
+     <user-provided one-liner from --message or interactive prompt>
+     ## Affected adapters
+     <from manifest>
+     ## Reviewers
+     <OWNERS or frontmatter.owners>
+     ## Quality gates
+     ✓ schema  ✓ refs  ✓ secrets  ✓ semver  ✓ owners
+     ## Version
+     <old> → <new> (<patch|minor|major>)
+
+6. SHIP phase
+   Branch:  <git user>/publish-<asset-id>-<new-version>
+   Commit:  conventional: skill(<id>): bump to <version> — <one-liner>
+   Push:    git push -u origin <branch>
+   PR:      gh pr create --base main --title <title> --body <body>
+            [--draft if --draft]
+            --reviewer <owners>
+
+7. RECORD phase
+   ~/.mfaw/state.json:
+     pending_publications.append({
+       asset_id, version, branch, pr_url, sha, opened_at
+     })
+```
+
+### `mfaw publish --status`
+
+Lists pending publications with PR state (open/merged/closed) via `gh pr view`.
+
+### `mfaw pull` warns on pending edits
+
+If `git status --porcelain content/` shows un-published changes, `pull`
+warns and refuses unless `--force`. Prevents accidental clobber.
+
+---
+
+## 13. State Ledgers
+
+### Global — `~/.mfaw/state.json`
+
+```json
+{
+  "$schema": "https://schemas.mfaw.dev/state-v1.json",
+  "version": 1,
+  "mfaw_version": "0.1.0",
+  "installed_at": "2026-05-06T10:30:00Z",
+  "last_sync_at": "2026-05-06T11:00:00Z",
+  "active_project": "/Users/x/code/billing",
+  "adapters": ["claude", "cursor"],
+  "projections": [
+    {
+      "asset_id": "fix-cve",
+      "asset_version": "1.4.2",
+      "kind": "skill",
+      "stub_kind": "symlink",
+      "source": "/Users/x/.local/lib/python3.11/site-packages/mfaw/content/skills/fix-cve",
+      "adapter": "claude",
+      "target": "/Users/x/.claude/skills/mfaw-fix-cve",
+      "sentinel_hash": null,
+      "installed_at": "2026-05-06T10:30:00Z",
+      "layer": "global"
+    }
+  ],
+  "hooks": [
+    {
+      "asset_id": "fix-cve",
+      "asset_version": "1.4.2",
+      "adapter": "claude",
+      "event": "UserPromptSubmit",
+      "tag": "asset:fix-cve@1.4.2"
+    }
+  ],
+  "pending_publications": []
+}
+```
+
+### Project — `<repo>/.mfaw/state.json`
+
+```json
+{
+  "version": 1,
+  "manifest_sha": "abc123...",
+  "synced_at": "2026-05-06T10:31:00Z",
+  "applied": {
+    "added": ["proj-deploy-checks"],
+    "pinned": { "fix-cve": { "from": "1.5.0", "to": "1.4.2" } },
+    "excluded": ["legacy-style"]
+  },
+  "projections": [
+    /* same shape as global, layer="project" */
+  ]
+}
+```
+
+### Project switcher — `~/.mfaw/projects/index.json`
+
+```json
+{
+  "<sha256-of-abs-path>": {
+    "path": "/Users/x/code/billing",
+    "registered_at": "...",
+    "last_synced_at": "..."
+  }
+}
+```
+
+### Atomic write rule (`state.py`)
+
+```python
+def save_atomic(path: Path, data: dict) -> None:
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=True))
+    os.replace(tmp, path)        # atomic on POSIX & Win
+```
+
+### File locking
+
+```python
+@contextmanager
+def file_lock(path: Path) -> Iterator[None]:
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with lock_path.open("w") as f:
+        if sys.platform == "win32":
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if sys.platform == "win32":
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+```
+
+Every read-modify-write of any ledger goes through this.
+
+---
+
+## 14. Schemas
+
+### `schema/skill.schema.json` (outline)
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "name", "description", "version", "kind"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "name": { "type": "string", "minLength": 3, "maxLength": 60 },
+    "description": { "type": "string", "minLength": 10, "maxLength": 200 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "kind": { "enum": ["skill", "agent", "rule", "command"] },
+    "owners": { "type": "array", "items": { "type": "string", "pattern": "^@" }, "minItems": 1 },
+    "adapters": { "type": "array", "items": { "enum": ["claude", "cursor", "codex", "windsurf"] } },
+    "trigger": { "type": "string", "maxLength": 200 },
+    "references": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
+```
+
+### `schema/project-manifest.schema.json` (outline)
+
+```json
+{
+  "type": "object",
+  "required": ["version", "extends"],
+  "properties": {
+    "version": { "const": 1 },
+    "extends": { "enum": ["global"] },
+    "pin": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" } },
+    "add": { "type": "array", "items": {
+      "type": "object", "required": ["id", "type", "path"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["skill", "agent", "rule", "command"] },
+        "path": { "type": "string" }
+      }
+    }},
+    "exclude": { "type": "array", "items": { "type": "string" } },
+    "adapters": { "type": "object",
+      "patternProperties": { "^[a-z]+$": { "type": "object", "properties": { "enabled": { "type": "boolean" } } } }
+    },
+    "metadata": { "type": "object" }
+  }
+}
+```
+
+### `schema/state.schema.json`
+
+(matches the JSON in §13)
+
+---
+
+## 15. Error Handling & Exit Codes
+
+```python
+class MfawError(Exception):
+    exit_code: int = 1
+
+class SchemaValidationError(MfawError): exit_code = 3
+class FilesystemError(MfawError):       exit_code = 4
+class GitError(MfawError):              exit_code = 5
+class LockHeldError(MfawError):         exit_code = 6
+class DriftDetectedError(MfawError):    exit_code = 7
+class UsageError(MfawError):            exit_code = 2
+```
+
+### CLI top-level handler
+
+```python
+def main():
+    try:
+        args = parser.parse_args()
+        return commands[args.command].run(args)
+    except MfawError as e:
+        log.error(e)
+        sys.exit(e.exit_code)
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception:
+        log.exception("unexpected error")
+        sys.exit(1)
+```
+
+### User-facing error rules
+
+- One error = one line + a "fix it with: …" hint.
+- Stack traces only with `--verbose`.
+- Never log absolute paths under `~/.mfaw/` without redacting username (privacy).
+
+---
+
+## 16. Concurrency & Atomicity
+
+### Rules
+
+1. Every ledger r/w goes through `file_lock`.
+2. Every ledger write is atomic (`os.replace`).
+3. Every disk install is recorded in the ledger **before** the disk mutation
+   (write-ahead log pattern). On crash, `mfaw doctor` reconciles.
+4. `mfaw sync` invocations serialize on the global lock. Background sync from
+   git hooks holds the lock for the duration; manual `sync` waits up to 30s
+   then errors with `LockHeldError`.
+5. Hook scripts must exit fast (< 1s synchronous work). Background the actual
+   sync.
+
+### Crash safety
+
+```
+[t0] sync starts
+[t1] action: install fix-cve
+       → write-ahead: ledger row { state: PENDING }
+       → atomic save_atomic(ledger)
+       → fs op: stub.install
+       → ledger row update: { state: COMMITTED }
+       → atomic save_atomic(ledger)
+[crash anywhere here]
+
+mfaw doctor:
+   reads ledger
+   for any row where state == PENDING:
+     verify disk: present? → mark COMMITTED, save
+                  absent?  → drop row, save
+```
+
+---
+
+## 17. Testing Strategy
+
+### Unit tests (`tests/unit/`)
+
+Pure logic, no real filesystem. Use `pyfakefs` or `tmp_path`.
+
+- `test_manifest_resolution.py`:
+  - extends + pin, extends + add, extends + exclude
+  - collision: project asset shadows global
+  - error: pin to unknown version
+  - empty manifest = global only
+- `test_semver.py`:
+  - frontmatter diff → bump kind
+  - error: explicit version doesn't match suggested bump
+- `test_differ.py`:
+  - body-only change = patch
+  - new optional field = minor
+  - removed required field = major
+- `test_state_locking.py`:
+  - two threads attempting save → serialized
+  - lock released on exception
+- `test_stub_idempotence.py`:
+  - install same src → dst twice = no-op
+  - install over orphan = error
+  - install over mfaw-managed with different src = replace
+
+### Integration tests (`tests/integration/`)
+
+Real filesystem under `tmp_path`. Stub HOME, stub `~/.claude/`.
+
+- `test_init_nuke_roundtrip.py`:
+  ```
+  init → assert ledger present, symlinks present, settings.json has tagged hooks
+  nuke → assert ledger gone, symlinks gone, settings.json clean
+  ```
+- `test_local_layer_roundtrip.py`:
+  ```
+  init (global) → init --local in temp git repo
+  edit .mfaw/manifest.json: pin fix-cve@1.4.2
+  sync → assert ~/.claude/skills/mfaw-fix-cve points to v1.4.2
+  rm .mfaw → sync → assert restored to global default
+  ```
+- `test_git_hook_chain.py`:
+  ```
+  pre-create .git/hooks/post-checkout with marker "USER_HOOK"
+  init --local
+  trigger post-checkout
+  assert mfaw sync ran AND USER_HOOK still ran
+  nuke --local
+  assert .git/hooks/post-checkout == original USER_HOOK content
+  ```
+- `test_publish_dry_run.py`:
+  ```
+  modify a skill body
+  publish --dry-run
+  assert: gates pass, semver bump = patch, PR body well-formed
+  no actual git push or gh call (mock)
+  ```
+
+### Cross-platform
+
+CI matrix: `{ubuntu-latest, macos-latest, windows-latest}` × `{python 3.11, 3.12, 3.13}`.
+
+Windows test must run as **non-admin without Developer Mode** to verify
+junction + copy fallback paths.
+
+### Coverage target
+
+≥ 85% line coverage. Critical files (`stub.py`, `state.py`, `manifest.py`,
+`adapters/base.py`) must be 100%.
+
+---
+
+## 18. Packaging & Distribution
+
+### `pyproject.toml`
+
+```toml
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mfaw"
+version = "0.1.0"
+description = "Multi-Framework Agentic Workspace — manage AI agent skills across IDEs"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{name = "Your Team"}]
+keywords = ["claude", "cursor", "agents", "skills", "llm"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "jsonschema>=4.20",
+  "pyyaml>=6.0",
+  "tomli>=2.0; python_version<'3.11'",
+  "rich>=13.7",            # CLI output
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=4.1",
+  "pyfakefs>=5.3",
+  "ruff>=0.3",
+  "mypy>=1.8",
+]
+
+[project.scripts]
+mfaw = "mfaw.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/mfaw"
+Issues = "https://github.com/your-org/mfaw/issues"
+
+[tool.hatch.build]
+include = ["src/mfaw/**", "schema/**", "src/mfaw/content/**"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+```
+
+### `content/` shipped inside the package
+
+Use `importlib.resources` to read shipped content:
+
+```python
+from importlib.resources import files
+
+def global_content_root() -> Path:
+    return Path(str(files("mfaw") / "content"))
+```
+
+This way `pip install mfaw` ships skills, schemas, and adapter assets
+together. Editable installs (`pip install -e .`) still work.
+
+### Publish workflow (`.github/workflows/publish.yml`)
+
+```yaml
+name: publish
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine upload --repository-url ${{ secrets.ARTIFACTORY_URL }} dist/*
+        env:
+          TWINE_USERNAME: ${{ secrets.ARTIFACTORY_USER }}
+          TWINE_PASSWORD: ${{ secrets.ARTIFACTORY_TOKEN }}
+```
+
+---
+
+## 19. Implementation Order
+
+Each step is a shippable internal release. **Do not start step N+1 until step N's tests pass on all 3 OSes.**
+
+### Slice 0 — Bootstrap (1 day)
+- `pyproject.toml`, repo skeleton, ruff/mypy config, CI lint job.
+- `mfaw --version` works.
+
+### Slice 1 — Manifest + schemas (1 day)
+- `schema/skill.schema.json`, `schema/manifest.schema.json`,
+  `schema/project-manifest.schema.json`, `schema/state.schema.json`.
+- `manifest.py` parser + resolver (no I/O).
+- Unit tests: resolution rules, all 4 cases (extends/pin/add/exclude).
+
+### Slice 2 — State + locking (1 day)
+- `state.py` with atomic write + file lock.
+- Schema-validated reads.
+- Unit tests: concurrent writes, crash recovery (write-ahead log).
+
+### Slice 3 — Stub strategy (2 days)
+- `stub.py`: symlink / junction / copy+sentinel.
+- Unit tests on all 3 OSes (CI matrix).
+- `mfaw doctor` skeleton.
+
+### Slice 4 — Claude adapter + global init/nuke (2 days)
+- `adapters/base.py`, `adapters/claude.py`.
+- `commands/init.py` (global only), `commands/nuke.py`.
+- Integration test: init → nuke roundtrip.
+
+### Slice 5 — Sync (2 days)
+- `commands/sync.py` with full plan/diff/apply algorithm.
+- Tests: idempotence, partial failure isolation.
+
+### Slice 6 — Per-repo layer (3 days)
+- `commands/init.py --local`.
+- Project ledger + project switcher index.
+- `commands/use.py`, `commands/status.py`, `commands/list.py`.
+- Integration test: local-layer roundtrip + branch switch sim.
+
+### Slice 7 — Git hooks + chaining (2 days)
+- Hook installer + chaining prologue.
+- `nuke --local` removes hooks safely.
+- Integration test: pre-existing user hook + mfaw hook coexist.
+
+### Slice 8 — Doctor (1 day)
+- `commands/doctor.py` with `--fix`.
+- Drift detection: orphan files, ledger mismatches, schema failures.
+
+### Slice 9 — Cursor adapter (1 day)
+- `adapters/cursor.py` — proves the abstraction.
+- Integration tests on Cursor paths.
+
+### Slice 10 — Publish (3 days)
+- `publish/differ.py`, `publish/semver.py`, `publish/gates.py`,
+  `publish/pr_body.py`, `publish/ownership.py`.
+- `commands/publish.py` orchestrator.
+- `--dry-run` and `--draft` modes.
+- Integration test with mocked `gh` and `git`.
+
+### Slice 11 — Pull (0.5 day)
+- `commands/pull.py`: git pull on package source (editable installs only).
+- For non-editable: explain that `pip install -U mfaw` is the path.
+
+### Slice 12 — Polish (2 days)
+- README, CHANGELOG, `docs/` — full set.
+- ASCII art logo, progress bars (rich).
+- v0.1.0 tag → publish.
+
+**Total: ~3 weeks of focused engineering for a v1 that beats AW on packaging,
+ledger correctness, and Windows support, and matches it on per-repo layer +
+contribution flow.**
+
+---
+
+## 20. Acceptance Criteria
+
+`mfaw` ships v1 when **all** of these are true:
+
+### Functional
+- [ ] `pip install mfaw` followed by `mfaw init` works on macOS, Linux,
+      Windows-admin, and Windows non-admin without Developer Mode.
+- [ ] `mfaw init --local` in a fresh git repo creates the project layer,
+      installs hooks, and runs sync end-to-end in < 5 seconds.
+- [ ] `git checkout` between branches with different `.mfaw/manifest.json`
+      auto-resyncs in the background without user action.
+- [ ] `mfaw nuke --all` removes every mfaw-touched file and leaves no
+      orphans (verified by file-system snapshot diff in CI).
+- [ ] `mfaw doctor` detects and (with `--fix`) repairs every category of
+      drift listed in §6.6.
+- [ ] `mfaw publish` produces a valid PR (verified via `gh pr view`)
+      against a test repo in CI, with correct semver, body, and reviewers.
+
+### Quality
+- [ ] CI green on `{macos, ubuntu, windows} × {3.11, 3.12, 3.13}`.
+- [ ] ≥ 85 % line coverage; 100 % on `stub.py`, `state.py`, `manifest.py`,
+      `adapters/base.py`.
+- [ ] Zero `ruff` warnings, zero `mypy --strict` errors.
+- [ ] All schemas validate sample assets in `tests/fixtures/`.
+
+### Documentation
+- [ ] README has a 60-second quickstart that works copy-paste.
+- [ ] `docs/per-repo-layer.md` walks through onboarding a new dev with
+      screenshots / asciinema.
+- [ ] `docs/adding-an-adapter.md` is a checklist a contributor can follow
+      to add a new IDE.
+- [ ] `docs/windows-notes.md` explains the symlink/junction/copy fallback
+      matrix and which cases require manual `mfaw sync`.
+
+### Safety
+- [ ] No mutation of any file outside `~/.mfaw/`, `~/.claude/`, `~/.cursor/`,
+      `<repo>/.mfaw/`, `<repo>/.git/hooks/`.
+- [ ] Every settings.json edit is preceded by a backup in `~/.mfaw/backups/`.
+- [ ] Every git hook install is reversible to byte-identical original.
+- [ ] No telemetry without explicit opt-in via `~/.mfaw/config.toml`.
+
+---
+
+## Appendix A — File-by-File Skeletons
+
+### `src/mfaw/cli.py`
+
+```python
+import argparse, sys
+from . import __version__
+from .commands import init, sync, pull, publish, nuke, doctor, status, list_, use
+from .errors import MfawError
+from .logging import configure as configure_logging
+
+COMMANDS = {
+    "init": init, "sync": sync, "pull": pull, "publish": publish,
+    "nuke": nuke, "doctor": doctor, "status": status, "list": list_, "use": use,
+}
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="mfaw")
+    p.add_argument("--version", action="version", version=f"mfaw {__version__}")
+    p.add_argument("--verbose", "-v", action="store_true")
+    p.add_argument("--quiet", "-q", action="store_true")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("--config", type=str, default=None)
+
+    sub = p.add_subparsers(dest="command", required=True)
+    for name, mod in COMMANDS.items():
+        mod.add_parser(sub)
+    return p
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    configure_logging(verbose=args.verbose, quiet=args.quiet, color=not args.no_color)
+    try:
+        return COMMANDS[args.command].run(args) or 0
+    except MfawError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return e.exit_code
+    except KeyboardInterrupt:
+        return 130
+```
+
+### `src/mfaw/errors.py`
+
+```python
+class MfawError(Exception):
+    exit_code: int = 1
+class UsageError(MfawError): exit_code = 2
+class SchemaValidationError(MfawError): exit_code = 3
+class FilesystemError(MfawError): exit_code = 4
+class GitError(MfawError): exit_code = 5
+class LockHeldError(MfawError): exit_code = 6
+class DriftDetectedError(MfawError): exit_code = 7
+class UnknownAsset(MfawError): exit_code = 3
+class UnsupportedAssetKind(MfawError): exit_code = 2
+```
+
+### `src/mfaw/manifest.py` (entry points)
+
+```python
+from dataclasses import dataclass
+from pathlib import Path
+import json, yaml
+
+from .errors import SchemaValidationError, UnknownAsset
+
+# ... Asset, EffectiveSet, Layer, AssetKind ...
+
+def load_global_manifest() -> GlobalManifest: ...
+def load_project_manifest(repo_root: Path) -> ProjectManifest | None: ...
+
+def resolve(
+    global_manifest: GlobalManifest,
+    project_manifest: ProjectManifest | None,
+    enabled_adapters: list[str],
+) -> EffectiveSet: ...
+
+def parse_frontmatter(asset_md: Path) -> dict: ...
+def validate_schema(data: dict, schema_name: str) -> None: ...
+```
+
+### `src/mfaw/stub.py` (entry points)
+
+```python
+from enum import StrEnum
+from pathlib import Path
+import os, sys, shutil, hashlib
+
+class StubKind(StrEnum):
+    SYMLINK = "symlink"
+    JUNCTION = "junction"
+    COPY = "copy"
+
+def install(src: Path, dst: Path, *, kind: AssetKind) -> Projection: ...
+def uninstall(projection: Projection) -> None: ...
+def is_mfaw_managed(target: Path, expected_hash: str | None = None) -> bool: ...
+
+def _create_junction(src: Path, dst: Path) -> None:    # Windows only
+    import _winapi; _winapi.CreateJunction(str(src), str(dst))
+
+def _copy_with_sentinel(src: Path, dst: Path, asset_id: str, version: str) -> str:
+    body = src.read_text()
+    sha = hashlib.sha256(body.encode()).hexdigest()[:16]
+    sentinel = f"<!-- mfaw:managed asset={asset_id} version={version} sha={sha} -->\n"
+    dst.write_text(sentinel + body)
+    return sha
+```
+
+### `src/mfaw/state.py` (entry points)
+
+```python
+from contextlib import contextmanager
+from pathlib import Path
+import json, os, sys, fcntl, msvcrt
+
+class StateLedger:
+    @classmethod
+    def load_global(cls) -> "StateLedger": ...
+    @classmethod
+    def load_project(cls, repo_root: Path) -> "StateLedger": ...
+
+    def record(self, projection: Projection) -> None: ...
+    def forget(self, asset_id: str, adapter: str) -> None: ...
+    def save_atomic(self) -> None: ...
+
+@contextmanager
+def file_lock(path: Path):
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w") as f:
+        if sys.platform == "win32":
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try: yield
+        finally:
+            if sys.platform == "win32":
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+def atomic_write(path: Path, data: str) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(data)
+    os.replace(tmp, path)
+```
+
+### `src/mfaw/adapters/base.py`
+
+```python
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+class Adapter(ABC):
+    name: str
+
+    @classmethod
+    @abstractmethod
+    def detect(cls) -> bool: ...
+
+    @abstractmethod
+    def install_asset(self, asset: Asset) -> Projection: ...
+
+    @abstractmethod
+    def uninstall_asset(self, projection: Projection) -> None: ...
+
+    @abstractmethod
+    def verify_asset(self, projection: Projection) -> bool: ...
+
+    @abstractmethod
+    def merge_hooks(self, hooks: list[HookEntry]) -> None: ...
+
+    @abstractmethod
+    def remove_hooks(self, asset_id: str) -> None: ...
+```
+
+### `src/mfaw/commands/sync.py` (skeleton)
+
+```python
+import argparse
+from pathlib import Path
+from ..manifest import load_global_manifest, load_project_manifest, resolve
+from ..state import StateLedger, file_lock
+from ..adapters import detected_adapters
+from ..logging import log
+
+def add_parser(sub):
+    p = sub.add_parser("sync", help="Re-project effective set into adapters")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--reinstall", action="store_true")
+    return p
+
+def run(args) -> int:
+    project = find_project_root(Path.cwd())
+    global_manifest = load_global_manifest()
+    project_manifest = load_project_manifest(project) if project else None
+    adapters = [a.name for a in detected_adapters()]
+
+    effective = resolve(global_manifest, project_manifest, adapters)
+
+    global_ledger = StateLedger.load_global()
+    project_ledger = StateLedger.load_project(project) if project else None
+
+    with file_lock(global_ledger.path):
+        plan = build_plan(global_ledger, project_ledger, effective, args.reinstall)
+        report = apply_plan(plan, global_ledger, project_ledger)
+        global_ledger.save_atomic()
+        if project_ledger: project_ledger.save_atomic()
+
+    if not args.quiet: report.print()
+    return 0 if report.ok else 1
+```
+
+---
+
+## End
+
+This document is the complete spec. Anything not covered here should default to:
+
+1. **Smaller, simpler, more reversible.**
+2. **Test it on Windows non-admin before declaring done.**
+3. **Schema-validate everything.**
+4. **Record every disk mutation in a ledger before doing it.**
+5. **Match AW's UX where it's good; improve it where it's not.**
+
+When in doubt, re-read §2 (Architecture) and §20 (Acceptance Criteria) — those
+constrain every other decision.
