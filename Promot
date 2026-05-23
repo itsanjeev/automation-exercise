@@ -1,126 +1,161 @@
 ROLE
-You are implementing a feature in the mfaw codebase. mfaw is a Python CLI that
-installs/uninstalls AI-tool assets (rules, skills, agents, commands, and now
-MCP servers) into ~/.claude/, ~/.cursor/, and per-repo locations. Read
-src/mfaw/ before writing anything.
+You are adding a unified console/logging helper to the mfaw Python CLI so its
+terminal output matches the look of the GHL Agentic Workspace CLI (Clack-styled:
+vertical bar on the left, intro/outro framing, smooth spinners, color-coded
+log levels, boxed notes, figlet banner on first run).
+
+REFERENCE
+The Node version uses:
+  @clack/prompts  (vertical bar, intro/outro, spinner, note, log.*)
+  chalk           (colors, hex)
+  figlet          (ASCII banner)
+See ghl-agentic-workspace/libs/aw/fmt.mjs in the dev tree for the exact
+visual we are matching.
+
+PYTHON STACK (mandatory)
+  rich         — colors, panels, spinners, progress, tracebacks
+  questionary  — interactive prompts (select/confirm/text)
+  pyfiglet     — banner only (lazy-imported)
+Do not introduce any other formatting/log libraries. No `logging`, no `loguru`,
+no `structlog`. The console helper IS the logger for CLI mode.
 
 GOAL
-Bring mfaw from 8.5/10 to 10/10 by landing the four foundation changes below.
-Do them in the order given. After each change: stop, run tests, show me the
-diff, wait for approval. Do not batch.
+Create exactly one module — src/mfaw/console.py — that every other file imports
+from. After this lands, no other file may call print(), rich.print(), or
+construct a Console() instance directly. Grep gate enforced in CI.
 
-NON-NEGOTIABLE CONSTRAINTS
-- No new top-level dependencies without asking. Current stack:
-  typer, rich, questionary, pydantic, pyyaml, jsonschema.
-- Every new source file gets a sibling test file. No exceptions.
-- Use `unknown`/`Any`-free typing. Pydantic models or dataclasses for all DTOs.
-- Atomic file writes only: write to `*.tmp` in same dir, fsync, os.replace.
-- Never use bare `except:` or empty `except Exception: pass`. Log + rethrow or
-  handle a typed exception.
-- Touch one concern per commit. Conventional Commits format.
-- All user-facing strings go through a single `console` helper (rich-backed).
-  No bare print().
-- Never write logs to stdout if the process is acting as an MCP server.
-  stderr only. (Test by checking sys.stdout.isatty() AND env var MFAW_MODE.)
+API (implement exactly this surface)
 
-WHAT TO BUILD — in order
+  # Framing
+  intro(msg: str) -> None              # bold pill, brand color, top bar
+  outro(msg: str) -> None               # green, bottom bar
+  banner(text: str, subtitle: str = "") -> None   # figlet + dividers, one-shot
 
-STEP 1: Use-case layer (prerequisite for everything else)
-- Create src/mfaw/usecases/ with one module per command:
-    install_asset.py, uninstall_asset.py, sync.py, doctor.py, nuke.py, status.py
-- Each module exports one pure function taking explicit dependencies
-  (StateLedger, ProjectManifest, AssetRegistry, AdapterRegistry, EnvProbe)
-  and returning a typed Result dataclass — never raising for expected failures.
-- Move CLI command bodies from src/mfaw/commands/ into thin wrappers that
-  parse argv, call the use-case, render the Result via rich.
-- Tests: pytest fixtures with tmp_path + in-memory StateLedger.
-  Target: 90%+ branch coverage on usecases/.
+  # Logs (each prints with a left-side vertical bar + symbol)
+  info(msg: str) -> None      # cyan ◆
+  success(msg: str) -> None   # green ◆
+  warn(msg: str) -> None      # yellow ▲
+  error(msg: str) -> None     # red ■
+  step(msg: str) -> None      # magenta ◇
 
-ACCEPTANCE CRITERIA for STEP 1
-- src/mfaw/commands/*.py files are all <50 lines each.
-- src/mfaw/usecases/install_asset.py has no `import typer`, no `import rich`,
-  no `print`, no `console`.
-- All existing CLI behavior unchanged (run the full test suite, all green).
-- New tests added for each use-case covering happy path + 2 failure modes.
+  # Multi-line boxed callout
+  note(body: str, title: str | None = None) -> None
 
-STEP 2: Drift policy, codified
-- Create src/mfaw/domain/drift.py with:
-    class DriftKind(Enum): MISSING, EXTRA, USER_EDITED, CONTENT_DRIFT
-    @dataclass class Drift: asset_id, target, kind, observed_hash, expected_hash
-    def detect(ledger, fs) -> list[Drift]
-    def reconcile(drifts, policy: Literal["repair","report","accept"]) -> ReconcileReport
-- The rule: ledger is intent, disk is observation. `doctor --repair` reconciles
-  disk to ledger EXCEPT USER_EDITED, which requires --force.
-- Add docs/adr/0001-drift-policy.md documenting this rule with examples.
-- Wire doctor use-case to call detect() + reconcile().
+  # Spinner — context manager
+  spinner(message: str) -> ContextManager[Spinner]
+      with spinner("Doing thing") as s:
+          s.message("phase 2")
+          ...
+      # auto-stop on exit; stop("Done") if explicit success message wanted
 
-ACCEPTANCE CRITERIA for STEP 2
-- domain/drift.py has zero imports from adapters/, state/, or cli.
-- Hypothesis property test: for any sequence of (install, mutate-disk, doctor)
-  operations, the final ledger ⊇ final disk projections.
-- USER_EDITED never overwritten without --force, verified by test.
+  # Prompts (thin wrappers over questionary, but rendered through rich theme)
+  select(message: str, choices: list[str], default: str | None = None) -> str
+  confirm(message: str, default: bool = False) -> bool
+  text(message: str, default: str = "") -> str
+  # All raise CancelError on Ctrl-C; never return None.
 
-STEP 3: Audit log
-- Create src/mfaw/state/audit.py with AuditLog class.
-- Append-only JSONL at ~/.mfaw/audit.log. One line per mutation: ts, cmd,
-  asset_id, target, mfaw_version, actor, result, error (nullable).
-- Every use-case in step 1 takes AuditLog as a dependency and writes one line
-  per mutation. Failure to write audit log = abort the mutation.
-- `mfaw audit` command: rich.table of last N entries with filters.
+  # Silent + non-TTY
+  set_silent(v: bool) -> None
+      # When True: all framing/logs/spinners become no-ops. Errors still print.
+  is_tty() -> bool
+      # False under pytest, CI, pipes. In that mode:
+      #   - drop colors
+      #   - replace spinners with one-line "… done." after the block
+      #   - log lines become plain "INFO: ..." prefixed text
 
-ACCEPTANCE CRITERIA for STEP 3
-- A failed mutation still leaves an audit line with result=error.
-- Audit log writes are atomic (fsync between line and close).
-- Audit log corruption (truncation) does not crash mfaw — log is appended-to,
-  never read on startup.
+  # MCP-server mode (CRITICAL)
+  set_mcp_mode(v: bool) -> None
+      # When True: ALL output goes to stderr, never stdout.
+      # stdout is reserved for JSON-RPC. Violating this breaks MCP transport.
 
-STEP 4: MCP as a fifth AssetKind
-- Extend AssetKind enum with MCP.
-- Add src/mfaw/content/mcp/ with example shipped MCP server configs as
-  <id>.yaml (frontmatter + body holding the server command/args/env).
-- Add fragment-install primitive in stubs.py:
-    install_fragment(target_json_path, jsonpath_owned, fragment, sentinel_key)
-  - Reads target JSON (creating with {} if absent).
-  - Merges fragment only under jsonpath_owned. Records sha16 of fragment +
-    jsonpath in ledger, not whole-file hash.
-  - On uninstall: removes only owned keys; refuses if user mutated them.
-- ClaudeAdapter.install_mcp() → writes to ~/.claude.json under "mcpServers".
-- CursorAdapter.install_mcp() → writes to ~/.cursor/mcp.json (flat shape).
-- Add `mfaw use mcp:<id>` flow end-to-end.
+  # Errors
+  class CancelError(Exception): ...   # raised by prompts on Ctrl-C
 
-ACCEPTANCE CRITERIA for STEP 4
-- Adding an MCP server preserves all pre-existing keys in mcp.json byte-for-byte
-  (test with a fixture mcp.json containing user-owned entries).
-- Uninstalling an MCP server restores the file to its pre-install state if the
-  user didn't touch mfaw-owned keys.
-- A user-modified mfaw-owned key triggers a Drift(USER_EDITED) and refuses
-  uninstall without --force.
+VISUAL SPEC
 
-DELIVERY RULES
-- One PR per step. PR title: "feat(mfaw): step <N> — <name>".
-- PR body: what changed, why, how to test, breaking changes (none expected).
-- Update CHANGELOG.md per Keep-a-Changelog format.
-- Update README.md only when user-visible behavior changes.
-- If you encounter ambiguity, STOP and ask one specific question. Do not guess.
+  Brand color:      #FF6B35 (orange)
+  Success:          green
+  Info:             cyan
+  Warn:             yellow
+  Error:            red
+  Step:             magenta
+  Dim:              dim white
 
-WHAT NOT TO DO
-- Do not add `init --local` removal yet (separate concern).
-- Do not start `publish` work.
-- Do not refactor adapters' existing skill/rule/agent/command code paths.
-- Do not introduce async unless one of the use-cases proves it's needed —
-  every disk op here is fast.
-- Do not add telemetry, signing, or lockfile work in this round.
+  Vertical-bar layout (mimic Clack):
+
+      ◆  intro pill (bg=orange, fg=black, padding)
+      │
+      ◇  step message
+      │
+      ◆  info message
+      │
+      ┌─ Note title ─────────────────
+      │ note body line 1
+      │ note body line 2
+      └──────────────────────────────
+      │
+      ⠋  spinner message            ← braille spinner
+      │
+      ●  success message
+      │
+      └  outro (green)
+
+  Implement the bar using rich's Group + a custom Panel-less renderer, OR
+  by printing each line prefixed with "│ " in dim white. The latter is
+  simpler and matches Clack's behavior. Use the latter.
+
+  Banner uses pyfiglet "ANSI Shadow" font, brand color, sandwiched between
+  two dim "─" lines spanning min(term_width, 80).
+
+ENVIRONMENT HONORING (MUST)
+  NO_COLOR=1     → disable all color (rich already honors this; verify)
+  CI=true        → set is_tty() to False
+  MFAW_SILENT=1  → set_silent(True) at import time
+  MFAW_MODE=mcp  → set_mcp_mode(True) at import time
+                   (also auto-detected if stdin is not a TTY AND parent
+                    process name suggests claude/cursor — but env wins)
+
+IMPLEMENTATION NOTES
+- Single module-level Console instance for stdout, single for stderr.
+  Switch which is "active" based on mcp_mode.
+- Spinner: use rich.progress.Progress with SpinnerColumn + TextColumn,
+  transient=True, so it disappears on stop. On non-TTY, print a single
+  "… <message>" line on enter and "✓ <stop_message>" on exit.
+- Width: read shutil.get_terminal_size().columns; cap at 100 for readability.
+- All public functions are sync. No async.
+
+DELIVERABLES
+1. src/mfaw/console.py (the only new source file).
+2. tests/test_console.py covering:
+     - silent mode swallows output
+     - non-TTY (capsys) drops colors and spinner becomes inline
+     - mcp mode writes nothing to stdout (use capsys)
+     - CancelError raised when questionary returns None
+3. A grep-based CI check (scripts/check_console_usage.sh) that fails the
+   build if any file under src/mfaw/ (excluding console.py itself) contains:
+       \bprint\(   |   rich\.print   |   Console\(   |   sys\.stdout\.write
+4. Migrate existing CLI command files to import from console. One commit
+   per command file (sync, init, doctor, use, status, nuke). Show me diffs
+   between commits.
+5. README.md: add a 10-line "Console output" section showing a screenshot/
+   asciicast of the new look.
+
+ACCEPTANCE
+- `mfaw init` shows: banner → intro → 3 step lines → spinner → success → outro
+  on a TTY. Same content as plain prefixed text on CI.
+- `MFAW_MODE=mcp mfaw status` writes zero bytes to stdout, all to stderr.
+- `mfaw --silent sync` shows exactly one line: "Initializing..." and exits.
+- Grep gate passes; pytest passes; coverage on console.py > 90%.
+
+OUT OF SCOPE
+- Do not touch the use-case layer.
+- Do not change command behavior — only output formatting.
+- Do not add file logging, log rotation, or structured JSON logs. Separate task.
+- Do not refactor adapters' existing log calls beyond replacing print().
 
 START
-1. Read these files first:
-   - src/mfaw/cli.py
-   - src/mfaw/commands/*.py
-   - src/mfaw/state.py (or state/*.py)
-   - src/mfaw/manifest.py
-   - src/mfaw/adapters/*.py
-   - src/mfaw/stubs.py
-   - src/mfaw/schema/*.json
-   - tests/ (top of the tree)
-2. Produce a written 10-line plan for STEP 1 only. Wait for my "go".
-3. Implement STEP 1. Run tests. Show diff. Wait.
-4. Repeat for STEPS 2, 3, 4.
+1. Read src/mfaw/cli.py, src/mfaw/commands/*.py, and any existing helpers
+   in src/mfaw/fmt.py or similar. List every print()/rich call you find.
+2. Produce a 10-line plan. Wait for "go".
+3. Build console.py + tests. Show diff. Wait.
+4. Migrate each command file. One commit each.
