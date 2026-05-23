@@ -1,50 +1,126 @@
-Below is a prompt you can use to generate a report similar to the one provided in the screenshots, ensuring all elements and structure are preserved when analyzing data for different quarters. This prompt can be reused with new data inputs.
+ROLE
+You are implementing a feature in the mfaw codebase. mfaw is a Python CLI that
+installs/uninstalls AI-tool assets (rules, skills, agents, commands, and now
+MCP servers) into ~/.claude/, ~/.cursor/, and per-repo locations. Read
+src/mfaw/ before writing anything.
 
-Prompt:
-I am providing you with data analysis for two quarters (e.g., Q2 and Q3) related to the impact of GitHub Copilot on code optimization and automation efficiency. Based on the data I provide, generate a detailed report in the exact format and style of the attached screenshots. Include the following sections and details without adding any new reporting structure:
-	1	Title and Comparison Section:
-	◦	Use the title “GitHub Copilot Impact Analysis: Q2 vs Q3” (replace Q2 and Q3 with the actual quarters provided).
-	◦	Include an “Executive Summary” subsection with a brief comparison statement (e.g., “Comparing Q2 (Copilot introduced) with Q3 (Copilot matured) reveals that deletions don’t equal rework - they often represent optimization and consolidation. This analysis reframes the metrics to show code efficiency improvements rather than just churn.”).
-	2	Overall Metrics Comparison Table:
-	◦	Create a table with the following columns: “Metric”, “Q2 (Copilot New)”, “Q3 (Copilot Mature)”, “Change”, “Assessment”.
-	◦	Include metrics such as “Total Files Changed”, “Lines Added”, “Lines Removed”, “Net Change”, and populate with the data I provide.
-	◦	Use color-coded assessments (e.g., ✅ Stable, 🟢 Slightly lower, 🟢 More optimization, 🟡 Lower growth) based on the change trends.
-	3	Key Insight Section:
-	◦	Include a “Key Insight: Lines Removed = Code Optimization, Not Rework” subsection.
-	◦	Add a brief explanation (e.g., “Understanding ‘Lines Removed’”) and a list of what lines removed include (e.g., “Lines removed includes:”).
-	4	Lines of Code Reduction Analysis (Spec Files - Feature/Test Scenarios):
-	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
-	◦	Include metrics like “Total Spec Files”, “What Changed” with examples (e.g., “Multiple duplicate scenarios” vs. “Consolidated generic tests”), and provide evidence from Q3 (e.g., “ThirdPartyPropertyExposure_feature: Before: 326 lines (Q2), After: 181 lines (Q3), Removed: 225 lines, Result: Same coverage, 69% less code”).
-	◦	List optimization activities (e.g., “Consolidating 3 test scenarios into 1 generic test (reducing duplication)”).
-	5	Page Objects (Framework Code) Analysis:
-	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
-	◦	Include metrics like “Total Page Objects”, “What Changed” with examples (e.g., “Redundant duplicate methods” vs. “Extracted common methods, modularized”), and provide evidence from Q3 (e.g., “NewENOLMotorClaimCommonPage.java: Before: 501 lines (Q2), After: 266 lines (Q3), Removed: 235 lines, Result: Extracted helpers”).
-	◦	List characteristics before and after optimization.
-	6	Step Definitions (Implementation) Analysis:
-	◦	Create a table with columns: “Metric”, “Before Optimization (Q2)”, “After Optimization (Q3)”, “Impact”, “Lines Saved”.
-	◦	Include metrics like “Step Definition Files”, “What Changed” with examples (e.g., “Long methods with inline logic” vs. “Extracted helper methods”), and provide evidence from Q3.
-	◦	List characteristics before and after optimization.
-	7	Automation Cycle Time Improvement:
-	◦	Create a table titled “Time to Complete Automation for a Story” with columns: “Phase”, “Before Copilot (Q2)”, “After Copilot (Q3)”, “Time Saved”, “Impact”.
-	◦	Include phases like “Writing Test Scenarios”, “Creating Page Objects”, “Implementing Step Definitions”, “Test Data Setup”, “Debugging & Fixes”, and calculate the total.
-	◦	Use color-coded impacts (e.g., ✅ Copilot suggests BDD steps, ✅ Copilot generates locators & methods, 🟡 Still requires manual effort, ✅ Major improvement) based on time savings.
-	8	Automation Efficiency Metrics:
-	◦	Include a “Story Completion Breakdown (Detailed)” section with an example story (e.g., “Create Motor FNOL with Third Party”).
-	◦	Create a table with columns: “Task”, “Q2 (Manual)”, “Q3 (Copilot)”, “Time Saved”, “Method”.
-	◦	Include tasks like “Feature File”, “Page Objects”, “Step Definitions”, “Helper Classes”, “Test Data”, “Debugging”, and calculate the total with time saved (e.g., “-2.5 days saved”).
-	◦	Use color-coded impacts (e.g., ✅ Copilot suggests Gherkin syntax, ✅ Copilot generates JSON).
-	9	Detailed Metrics: Before vs After Optimization:
-	◦	Include subsections for “Feature Files (Test Scenarios)”, “Framework Code (Page Objects)”, and “Step Definitions (Implementation)”.
-	◦	For each subsection, list:
-	▪	Q2: Before Optimization (e.g., number of files, average lines, characteristics like duplicate test scenarios).
-	▪	Q3: After Optimization (e.g., number of files, average lines, characteristics like parameterized scenarios).
-	▪	Impact Summary (e.g., lines removed, impact per scenario or method, what was removed like duplicate test steps).
-	10	Category-by-Category Analysis:
-	◦	Include subsections for “Feature Files (Test Scenarios)” and “Framework Code (Page Objects)”.
-	◦	Create tables with columns: “Metric”, “Q2”, “Q3”, “Difference”, “Interpretation”.
-	◦	Include metrics like “Files Changed”, “Lines Added”, “Lines Removed”, “Net Change”, “New Files”, “Deletions”, “Major Reductions”.
-	◦	Provide interpretations (e.g., ✅ More test coverage, 🟢 Doubled optimization) and explanations (e.g., “Double optimization activity (team is consolidating duplicate tests)”).
-Use the data I provide for each quarter to populate the tables and sections. Ensure all tables, color-coded assessments, and impact summaries match the style and layout of the attached screenshots. Do not introduce new sections or alter the existing structure.
-Please generate the report based on the following data: [Insert data for Q2 and Q3 here].
+GOAL
+Bring mfaw from 8.5/10 to 10/10 by landing the four foundation changes below.
+Do them in the order given. After each change: stop, run tests, show me the
+diff, wait for approval. Do not batch.
 
-You can replace “[Insert data for Q2 and Q3 here]” with the specific metrics and details for the quarters you want to analyze, and the response will follow the exact format and structure of the provided screenshots.
+NON-NEGOTIABLE CONSTRAINTS
+- No new top-level dependencies without asking. Current stack:
+  typer, rich, questionary, pydantic, pyyaml, jsonschema.
+- Every new source file gets a sibling test file. No exceptions.
+- Use `unknown`/`Any`-free typing. Pydantic models or dataclasses for all DTOs.
+- Atomic file writes only: write to `*.tmp` in same dir, fsync, os.replace.
+- Never use bare `except:` or empty `except Exception: pass`. Log + rethrow or
+  handle a typed exception.
+- Touch one concern per commit. Conventional Commits format.
+- All user-facing strings go through a single `console` helper (rich-backed).
+  No bare print().
+- Never write logs to stdout if the process is acting as an MCP server.
+  stderr only. (Test by checking sys.stdout.isatty() AND env var MFAW_MODE.)
+
+WHAT TO BUILD — in order
+
+STEP 1: Use-case layer (prerequisite for everything else)
+- Create src/mfaw/usecases/ with one module per command:
+    install_asset.py, uninstall_asset.py, sync.py, doctor.py, nuke.py, status.py
+- Each module exports one pure function taking explicit dependencies
+  (StateLedger, ProjectManifest, AssetRegistry, AdapterRegistry, EnvProbe)
+  and returning a typed Result dataclass — never raising for expected failures.
+- Move CLI command bodies from src/mfaw/commands/ into thin wrappers that
+  parse argv, call the use-case, render the Result via rich.
+- Tests: pytest fixtures with tmp_path + in-memory StateLedger.
+  Target: 90%+ branch coverage on usecases/.
+
+ACCEPTANCE CRITERIA for STEP 1
+- src/mfaw/commands/*.py files are all <50 lines each.
+- src/mfaw/usecases/install_asset.py has no `import typer`, no `import rich`,
+  no `print`, no `console`.
+- All existing CLI behavior unchanged (run the full test suite, all green).
+- New tests added for each use-case covering happy path + 2 failure modes.
+
+STEP 2: Drift policy, codified
+- Create src/mfaw/domain/drift.py with:
+    class DriftKind(Enum): MISSING, EXTRA, USER_EDITED, CONTENT_DRIFT
+    @dataclass class Drift: asset_id, target, kind, observed_hash, expected_hash
+    def detect(ledger, fs) -> list[Drift]
+    def reconcile(drifts, policy: Literal["repair","report","accept"]) -> ReconcileReport
+- The rule: ledger is intent, disk is observation. `doctor --repair` reconciles
+  disk to ledger EXCEPT USER_EDITED, which requires --force.
+- Add docs/adr/0001-drift-policy.md documenting this rule with examples.
+- Wire doctor use-case to call detect() + reconcile().
+
+ACCEPTANCE CRITERIA for STEP 2
+- domain/drift.py has zero imports from adapters/, state/, or cli.
+- Hypothesis property test: for any sequence of (install, mutate-disk, doctor)
+  operations, the final ledger ⊇ final disk projections.
+- USER_EDITED never overwritten without --force, verified by test.
+
+STEP 3: Audit log
+- Create src/mfaw/state/audit.py with AuditLog class.
+- Append-only JSONL at ~/.mfaw/audit.log. One line per mutation: ts, cmd,
+  asset_id, target, mfaw_version, actor, result, error (nullable).
+- Every use-case in step 1 takes AuditLog as a dependency and writes one line
+  per mutation. Failure to write audit log = abort the mutation.
+- `mfaw audit` command: rich.table of last N entries with filters.
+
+ACCEPTANCE CRITERIA for STEP 3
+- A failed mutation still leaves an audit line with result=error.
+- Audit log writes are atomic (fsync between line and close).
+- Audit log corruption (truncation) does not crash mfaw — log is appended-to,
+  never read on startup.
+
+STEP 4: MCP as a fifth AssetKind
+- Extend AssetKind enum with MCP.
+- Add src/mfaw/content/mcp/ with example shipped MCP server configs as
+  <id>.yaml (frontmatter + body holding the server command/args/env).
+- Add fragment-install primitive in stubs.py:
+    install_fragment(target_json_path, jsonpath_owned, fragment, sentinel_key)
+  - Reads target JSON (creating with {} if absent).
+  - Merges fragment only under jsonpath_owned. Records sha16 of fragment +
+    jsonpath in ledger, not whole-file hash.
+  - On uninstall: removes only owned keys; refuses if user mutated them.
+- ClaudeAdapter.install_mcp() → writes to ~/.claude.json under "mcpServers".
+- CursorAdapter.install_mcp() → writes to ~/.cursor/mcp.json (flat shape).
+- Add `mfaw use mcp:<id>` flow end-to-end.
+
+ACCEPTANCE CRITERIA for STEP 4
+- Adding an MCP server preserves all pre-existing keys in mcp.json byte-for-byte
+  (test with a fixture mcp.json containing user-owned entries).
+- Uninstalling an MCP server restores the file to its pre-install state if the
+  user didn't touch mfaw-owned keys.
+- A user-modified mfaw-owned key triggers a Drift(USER_EDITED) and refuses
+  uninstall without --force.
+
+DELIVERY RULES
+- One PR per step. PR title: "feat(mfaw): step <N> — <name>".
+- PR body: what changed, why, how to test, breaking changes (none expected).
+- Update CHANGELOG.md per Keep-a-Changelog format.
+- Update README.md only when user-visible behavior changes.
+- If you encounter ambiguity, STOP and ask one specific question. Do not guess.
+
+WHAT NOT TO DO
+- Do not add `init --local` removal yet (separate concern).
+- Do not start `publish` work.
+- Do not refactor adapters' existing skill/rule/agent/command code paths.
+- Do not introduce async unless one of the use-cases proves it's needed —
+  every disk op here is fast.
+- Do not add telemetry, signing, or lockfile work in this round.
+
+START
+1. Read these files first:
+   - src/mfaw/cli.py
+   - src/mfaw/commands/*.py
+   - src/mfaw/state.py (or state/*.py)
+   - src/mfaw/manifest.py
+   - src/mfaw/adapters/*.py
+   - src/mfaw/stubs.py
+   - src/mfaw/schema/*.json
+   - tests/ (top of the tree)
+2. Produce a written 10-line plan for STEP 1 only. Wait for my "go".
+3. Implement STEP 1. Run tests. Show diff. Wait.
+4. Repeat for STEPS 2, 3, 4.
