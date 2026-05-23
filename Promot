@@ -1,1 +1,89 @@
-ngfjy
+The architect's read is sharp. Agree on most, partial disagree on one. Calling it line by line so you can push back from a defensible position.
+
+## Q1–Q4: where I land
+
+**Q1 (stack) — Fully agree.** Adding `typer` and `pydantic` to a working `argparse + dataclass + jsonschema` codebase is solution-shopping. `questionary` is the one real ergonomic win. Adopt as-is.
+
+**Q2 (50-line cap) — Fully agree.** I included "<50 lines" in the original prompt as a shorthand for "no business logic in commands." Replacing it with the layering rule + a test is strictly better. Lagging indicators (line count) cause cargo-cult refactors; leading indicators (forbidden imports, forbidden patterns) cause actual layering. Take the architect's wording.
+
+**Q3 (lazy migration) — Agree, with one nuance.** Co-locating the `print → console` migration with the STEP 1 command rewrite is correct — you're touching each file once. The nuance: write the layering test (forbid `print(`, `rich.print`, `Console(` outside `console.py`) **before** STEP 1, not after, so it fails red until each command is migrated. That makes the migration legible in CI rather than vibes-based.
+
+**Q4 (hypothesis) — Agree.** Dev-only dependency. Drift reconciliation is textbook state-machine territory. One-line addition, large payoff.
+
+## P1–P3: the pushbacks
+
+**P1 (audit best-effort, not abort) — Agree completely. Take this.**
+
+The architect is right and I was wrong. The original rule conflated two things:
+
+- The **ledger** is transactional state (intent). Failure to write the ledger MUST abort the mutation, because intent and reality must stay in sync.
+- The **audit log** is forensic history (record). Failure to write the audit log should warn loudly but never block recovery operations.
+
+The dangerous failure mode the architect named is real: a user with a full disk runs `mfaw nuke` to recover, the audit append fails, the mutation aborts, the user is now stuck *because* of the safety mechanism. That's the worst kind of bug — a recovery tool that refuses to recover.
+
+**Take the architect's rule verbatim:** best-effort audit; on write failure, emit a `console.warn()` and continue; never abort the mutation. Optionally: stash the un-written audit line in memory and retry once at process exit.
+
+**P2 (invariant is wrong) — Agree completely. Take this.**
+
+I wrote `ledger ⊇ disk` and the architect correctly called it nonsense. The point of `EXTRA` drift is that disk can hold projections the ledger doesn't know about; the point of `MISSING` drift is the reverse. Neither containment holds before reconciliation.
+
+The correct invariant the architect proposes:
+
+> After `reconcile(policy="repair")` completes, for every projection where `kind != USER_EDITED`: `ledger == disk`.
+
+That's the actual safety property. Use it. Stronger version worth adding:
+
+> `reconcile(policy="report")` is a pure read — no mutations to ledger or disk.
+> `reconcile(policy="accept")` is `ledger := disk` for `EXTRA` and `ledger.remove(...)` for `MISSING`; never touches disk.
+> `reconcile(policy="repair")` is the one above; refuses `USER_EDITED` without `--force`.
+
+Three policies, three property tests, no ambiguity.
+
+**P3 (missing correctness work / STEP 1.5) — Agree, with one ordering question.**
+
+The three items the architect named are real correctness bugs, not polish:
+
+1. **File-lock scope.** A lock that only wraps `save()` is a lock that loses races. Two `mfaw sync` invocations in different shells will interleave install operations between lock acquisitions. Widening the lock to the whole install/sync transaction is correct.
+2. **`dataclasses.replace` for AssetSpec.** Manual rebuild is a latent bug factory — every new field added to `AssetSpec` is a place to forget to copy. `dataclasses.replace` is the one-line fix.
+3. **`Projection.kind: AssetKind`.** Type-erasing at persistence boundary is exactly the kind of thing that bites you a year later when someone introduces a new `AssetKind` and the persistence layer silently accepts the legacy string. JSON-boundary conversion in `StateLedger.load`/`dump` is the right fix.
+
+The ordering question: STEP 1.5 between STEP 1 and STEP 2 is reasonable. But you could also argue these are **prerequisites to STEP 1**, not interstitial work. Two reasons:
+
+- If STEP 1's use-cases call `ledger.save()` while assuming the lock covers the whole transaction (which it doesn't yet), STEP 1's tests will be lying. They'll pass under serial pytest but break under contention.
+- If STEP 1's use-cases consume `Projection.kind` as a string (current state), then STEP 1.5 has to refactor STEP 1's brand-new code. Doing 1.5 first means STEP 1 sees the right types from day one.
+
+**Counter-proposal: rename "STEP 1.5" to "STEP 0" and do it first.** Same scope the architect described, same half-day estimate, just sequenced before the use-case layer so STEP 1 is built on correct primitives instead of being immediately rewritten.
+
+If the architect has a reason to keep it as 1.5 — for example, they want the use-case layer to be the place that *forces* the correctness fixes by exposing the bugs in tests — that's a legitimate counter and I'd defer to them. But the default should be: fix correctness foundations first, build new layers on top.
+
+## Final revised ordering I'd propose back
+
+```
+STEP 0   — correctness fixes (file lock scope, dataclass.replace, Projection.kind typed)
+STEP 1   — use-case + presenter layer + layering test + lazy print→console migration
+STEP 2   — drift policy + ADR + reconcile (three policies, corrected invariants)
+STEP 3   — audit log (best-effort, warn on failure, never abort)
+STEP 4   — MCP as fifth AssetKind (fragment install, sentinel on owned jsonpath)
+```
+
+Difference from the architect's plan: pulled correctness fixes earlier (STEP 0), added layering test as a STEP 1 gate, made the audit-fail behavior explicit, and split the drift reconcile into three policies with separate property tests.
+
+## What I'd say back to them
+
+> Take all of Q1–Q4 and P1–P3 as written, except:
+>
+> **On P3 ordering** — let's do the correctness fixes as STEP 0, before the use-case layer, not after STEP 1. Reasons: (a) the file-lock-scope fix changes the contract the use-cases will rely on; (b) `Projection.kind` typing changes the signatures the use-cases will consume. Either fix done after STEP 1 means rewriting STEP 1 code. Half a day either way; sequencing it first means we only write each function once.
+>
+> **On the drift invariant** — adopt the architect's corrected invariant verbatim. Adding: split into three policies (`report` = pure read, `accept` = ledger follows disk, `repair` = disk follows ledger) with a property test each. Makes the policy enum carry the semantic, not the function body.
+>
+> **On audit-log failure** — exactly as architect said. Best-effort. Warn. Stash the un-written line in memory, retry once at process exit, then drop. Never blocks a mutation.
+>
+> **On STEP 1's layering test** — write the test before migrating commands, not after. It fails red until each command is converted. Visible progress, no vibes-based "done."
+>
+> With those four refinements applied, proceed with STEP 0.
+
+## One meta-comment on the exchange itself
+
+The architect's review is the right kind of pushback: **specific, testable, and pointing at correctness rather than taste.** The three items in P3 in particular are the difference between "looks like 10/10" and "actually is 10/10." Property-test-grade invariants and load-bearing correctness fixes aren't features — they're what makes the foundation worth building on.
+
+The plan after their changes is genuinely better than what I gave you. That's a good architect doing their job.
